@@ -1,0 +1,10 @@
+.env
+.venv/
+# May contain secrets - copy from .example
+scripts/servers-from-mcp-json.json
+__pycache__/
+*.pyc
+*.pyo
+web/node_modules/
+web/dist/
+web/.vite/

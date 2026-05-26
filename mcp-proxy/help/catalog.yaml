@@ -1,0 +1,1408 @@
+# MCP proxy help catalog — extend when adding upstream servers or tools.
+# domain key (map key) is used in URIs: mcp_proxy://help/{domain}
+
+verb_glossary:
+  find: "Resolve messy human input (names, codes, partial text) to candidate records or IDs. Prefer find_* when the user did not give a canonical ID."
+  search: "Structured filtering over API-backed fields (dates, status, IDs). Prefer search_* when you need raw filtered rows or many matches."
+  list: "Pagination / browsing when exploring without a strong filter. Prefer list_* for scanning pages of entities."
+  get_summary: "Safe, curated detail when you already have an exact ID (or just resolved one). Prefer get_*_summary for agent-friendly views."
+  get: "Full raw records from the upstream API. Use when summaries omit fields you need or for debugging."
+
+examples:
+  - want: "Listing id from a human name or nickname"
+    tool: guesty_find_listing
+    note: "Prefer over guesty_search_listings for name resolution."
+  - want: "Reservation from human input (guest, code, listing hint)"
+    tool: guesty_find_reservation
+    note: "Then guesty_get_listing_summary with listing id if you need property context."
+  - want: "Raw filtered reservation rows (dates, status, listing id)"
+    tool: guesty_search_reservations
+  - want: "Whether an employee is away on a specific date"
+    tool: absence_is_user_absent_on_date
+    note: "Prefer over listing all absences when you only need a yes/no for one date."
+  - want: "Zendesk ticket tied to a reservation id"
+    tool: zendesk_find_ticket_by_reservation_id
+  - want: "Cross-platform guest complaint triage across Zendesk, Guesty, and Breezeway"
+    tools:
+      [zendesk_search_tickets, guesty_find_reservation, breezeway_list_tasks]
+    note: "Journey `mcp_proxy://help/by-task/ops-guest-complaint-triage`."
+  - want: "Diagnose why a property is not getting bookings"
+    tools:
+      [guesty_find_listing, guesty_get_listing_calendar, sql_gateway_run_query]
+    note: "Journey `mcp_proxy://help/by-task/vacancy-diagnosis`."
+  - want: "SQL / warehouse tables and columns"
+    tool: sql_gateway_lookup_table
+    note: "Resource sql_gateway://schema/models (narrative) and sql_gateway://schema/yaml (machine-readable)."
+  - want: "n8n workflow by name, then inspect runs"
+    tools: [n8n_find_workflow_by_name, n8n_get_executions]
+  - want: "Author or update an n8n workflow via MCP (canonical steps)"
+    tools:
+      - n8n_get_workflow
+      - n8n_validate_workflow_definition
+      - n8n_create_workflow
+    note: "Journey `mcp_proxy://help/by-task/n8n-create-workflow` and `mcp_proxy://help/workflow/n8n/author-workflow`."
+  - want: "Stripe payout and its balance transactions"
+    tools: [stripe_get_payouts, stripe_get_payout_transactions]
+  - want: "Moloni invoices or credit notes (e.g. match portal invoice via your_reference)"
+    tool: moloni_list_invoices
+    note: "Use your_reference when correlating with internal invoice id; then moloni_get_invoice / moloni_get_credit_note for full document lines."
+  - want: "A proxied tool keeps failing or a server needs new capabilities"
+    tool: mcp_proxy_request_improvement
+    note: "Name the affected tool_names and/or server_ids; include the latest error in error_context when available."
+  - want: "Browse the shared Codex skills published by the proxy"
+    tool: mcp_proxy_list_skills
+    note: "Use before installing so you can inspect names, descriptions, and bundle URLs."
+  - want: "Install one shared Codex skill into a local Codex environment"
+    tool: mcp_proxy_install_skill
+    note: "Returns the tar.gz bundle URL plus safe local install commands for ~/.codex/skills/<skill-name>."
+  - want: "Check whether locally installed shared Codex skills are up to date"
+    tool: mcp_proxy_check_skill_updates
+    note: "Pass each installed skill name plus local version and/or content_sha256 to compare against the latest catalog metadata."
+  - want: "Ask for a change to a shared Codex skill"
+    tool: mcp_proxy_request_skill_update
+    note: "Use when the shared skill is missing rules, examples, or safety guidance."
+
+journeys:
+  - id: guest-complaint-reservation
+    title: "Guest complains about a reservation"
+    domains: [guesty, zendesk]
+    steps:
+      - "Resolve listing/reservation with guesty_find_listing / guesty_find_reservation."
+      - "Use guesty_get_listing_summary for property context when you have listing id."
+      - "Search or fetch Zendesk tickets with zendesk_search_tickets or zendesk_find_ticket_by_reservation_id."
+  - id: employee-away-date
+    title: "Check if employee is away on a date"
+    domains: [absence]
+    steps:
+      - "Resolve person with absence_find_user_by_name if needed."
+      - "Call absence_is_user_absent_on_date for the date in question."
+      - "Use absence_list_absences or absence_get_user_absences only when you need the full absence window details."
+  - id: ops-guest-complaint-triage
+    title: "Cross-platform guest complaint triage"
+    domains: [zendesk, guesty, breezeway]
+    steps:
+      - "Start with `zendesk_search_tickets` to find open guest-complaint tickets in the trailing 7 days."
+      - "For each ticket, resolve or confirm the reservation id; when a reservation id is already known, prefer `zendesk_find_ticket_by_reservation_id`."
+      - "Use `guesty_find_reservation` or a tight `guesty_search_reservations` call to fetch reservation context, then `guesty_get_listing_summary` for the property."
+      - "Resolve the matching Breezeway property with `breezeway_find_property_by_name_or_external_id`."
+      - "Use `breezeway_list_tasks` scoped to that property to find open or overdue tasks. Use `breezeway_triage_tasks` only when the user truly wants a portfolio-wide urgency queue."
+      - "Return one row per complaint and flag any row where an open complaint and an overdue Breezeway task exist together."
+  - id: vacancy-diagnosis
+    title: "Diagnose why a property is not getting bookings"
+    domains: [guesty, sql, breezeway]
+    steps:
+      - "Resolve the listing with `guesty_find_listing`."
+      - "Confirm listing status and identifiers with `guesty_get_listing_summary`."
+      - "Use `guesty_get_listing_calendar` for the next 60 days to measure open, blocked, and reserved days."
+      - "Inspect recent reviews with `guesty_search_reviews`."
+      - "Before SQL, inspect schema with `sql_gateway_get_schema` or `sql_gateway_lookup_table` to find the occupancy model and join key."
+      - "Use `sql_gateway_run_query` for a tight historical occupancy query over the previous 60 days."
+      - "Resolve the Breezeway property and inspect open tasks with `breezeway_find_property_by_name_or_external_id` plus `breezeway_list_tasks`."
+      - "Rank the top 3 hypotheses by likelihood and give one action per hypothesis."
+  - id: stripe-payout-ledger
+    title: "Find a Stripe payout and its transactions"
+    domains: [stripe]
+    steps:
+      - "stripe_get_payouts (filter/narrow by time) → pick payout id."
+      - "stripe_get_payout_transactions for line items."
+      - "Drill into stripe_get_balance_transaction or stripe_get_charge when needed."
+  - id: n8n-workflow-debug
+    title: "Locate an n8n workflow by name and inspect executions"
+    domains: [n8n]
+    steps:
+      - "n8n_find_workflow_by_name → workflow id."
+      - "n8n_get_workflow for structure; n8n_get_executions for recent runs."
+      - "n8n_get_node_source / n8n_search_nodes for node internals when debugging."
+  - id: n8n-create-workflow
+    title: "Create or extend an n8n workflow via MCP"
+    domains: [n8n]
+    steps:
+      - "Before using `n8n_*` workflow authoring tools, read `mcp_proxy://help/n8n`, `mcp_proxy://help/by-task/n8n-create-workflow`, and fetch MCP prompt `mcp_proxy_n8n_workflow_assistant` with `prompts/get`."
+      - "Authoring style (anti-noise): prefer the **smallest correct graph**; **update** existing workflows over creating new ones; **reuse credentials**; **native nodes + expressions** over Code; avoid extra Set/placeholder nodes; every new workflow must include a short sticky-note summary via the tool's required `summary`; **do not activate** unless asked; **at most 2 clarifying questions**. Full list: `mcp_proxy://help/n8n` (section **Authoring style**)."
+      - "Reuse or discover a template: n8n_find_workflow_by_name or n8n_get_workflows → n8n_get_workflow (copy node `type`, `typeVersion`, and parameter patterns you need)."
+      - "Choose node types: n8n_list_nodes → n8n_list_node_files → n8n_get_node_source; use n8n_search_nodes or n8n_find_node_by_name_or_capability when you do not know the package folder."
+      - "Credentials: n8n_get_credentials (avoid duplicates) → n8n_get_credential_schema(credential_type) before n8n_create_credential; or pass `credentials` on create/update to create/reuse by name+type and patch nodes."
+      - "Slack default: when a workflow uses Slack nodes, reuse the Slack credential named **`Slack n8n Bot`** unless the user explicitly asked for a different Slack credential or the existing workflow already uses another approved Slack credential. If `Slack n8n Bot` is missing, ask before creating or switching to another Slack credential."
+      - "Validate locally: n8n_validate_workflow_definition (optional); starter JSON: resource `n8n://templates/workflow-starter-minimal`."
+      - "Create: n8n_create_workflow — or update: n8n_get_workflow → merge changes → n8n_update_workflow (nodes merge by id by default; nodes_replace replaces the whole array; connections and settings replace entirely when passed; active is separate)."
+      - "Verify: n8n_get_workflow → n8n_get_executions; fix activation or connection errors using the returned workflow id."
+
+# Exposed via MCP resources/templates/list (override defaults in help_catalog.py if omitted).
+resource_templates:
+  - uriTemplate: "mcp_proxy://help/tool/{tool_name}"
+    name: help-tool
+    description: "Substitute proxied tool name (e.g. guesty_find_listing, sql_gateway_lookup_table)."
+    mimeType: text/markdown
+  - uriTemplate: "mcp_proxy://help/by-task/{slug}"
+    name: help-by-task
+    description: "Task or journey id from catalog (hyphenated slug, e.g. find-reservation, sql-schema)."
+    mimeType: text/markdown
+  - uriTemplate: "mcp_proxy://help/workflow/{domain}/{goal}"
+    name: help-workflow
+    description: "domain = catalog key; goal = workflow goal slug (see capabilities.json)."
+    mimeType: text/markdown
+  - uriTemplate: "mcp_proxy://help/by-domain/{domain}"
+    name: help-by-domain
+    description: "Alias of the domain guide for a catalog domain key."
+    mimeType: text/markdown
+  - uriTemplate: "mcp_proxy://help/{domain}"
+    name: help-domain-direct
+    description: "Direct domain guide URI; domain must be a catalog key (not index or capabilities.json)."
+    mimeType: text/markdown
+
+domains:
+  guesty:
+    title: Guesty
+    server_ids: [guesty]
+    description: "Property management: listings, reservations, guests, reviews."
+    start_here:
+      listing_from_text: guesty_find_listing
+      reservation_from_text: guesty_find_reservation
+    common_mistakes:
+      - "Using guesty_search_listings for fuzzy human names — use guesty_find_listing first."
+      - "Jumping to guesty_get_reservations without filters — use find/search with limits."
+    escalation: "find_* → get_*_summary / compact lists → guesty_get_* for full raw payloads."
+    aliases:
+      - prefer: guesty_find_listing
+        over: guesty_search_listings
+        when: "Resolving a listing from human-readable name or nickname."
+
+  zendesk:
+    title: Zendesk
+    server_ids: [zendesk]
+    description: "Support tickets, users, custom objects, reservation-linked records."
+    start_here:
+      ticket_from_reservation: zendesk_find_ticket_by_reservation_id
+      search_tickets: zendesk_search_tickets
+    aliases:
+      - prefer: find_ticket_by_reservation_id
+        over: zendesk_find_ticket_by_reservation_id
+        when: "You want the shorter proxy shorthand for reservation-linked Zendesk ticket lookup."
+    common_mistakes:
+      - "Fetching zendesk_get_ticket without an id — search or find first."
+    escalation: "zendesk_list_views → zendesk_get_view_ticket_counts → zendesk_list_view_tickets; ticket workflows: zendesk_search_tickets / find_* → zendesk_get_ticket → zendesk_get_ticket_audits for history."
+
+  n8n:
+    title: n8n
+    server_ids: [n8n]
+    description: "Automations: workflows, credentials, executions, and node discovery (GitHub-backed). Canonical workflow authoring guidance is available directly through MCP resources/prompts, so clients can use n8n tools correctly without relying on local skill installation. Supports authoring via create/update workflow, structural validation, and resolver-style node lookup."
+    start_here:
+      workflow_by_name: n8n_find_workflow_by_name
+      create_workflow: n8n_create_workflow
+      dry_run_validate: n8n_validate_workflow_definition
+      list_workflows: n8n_get_workflows
+    authoring_style:
+      - "Before authoring or updating workflows through MCP, read **`mcp_proxy://help/n8n`**, **`mcp_proxy://help/by-task/n8n-create-workflow`**, and fetch prompt **`mcp_proxy_n8n_workflow_assistant`** with `prompts/get`."
+      - "Aim for the **smallest correct workflow**: the fewest nodes and edges that satisfy the requirement — no speculative complexity."
+      - "Prefer **updating** (`n8n_update_workflow`) an existing workflow over **creating** (`n8n_create_workflow`) a new one when a target workflow already exists."
+      - "**Reuse credentials** — call `n8n_get_credentials` before `n8n_create_credential`; do not duplicate `(name, type)` without a clear reason."
+      - "For **Slack** nodes, default to the credential named **`Slack n8n Bot`** unless the user explicitly requested another Slack credential or the existing workflow already uses a different approved Slack credential."
+      - "Prefer **native n8n nodes** and **expressions** over **Code** nodes; use Code only when the same outcome cannot be done cleanly with standard nodes."
+      - "Avoid extra **Set / Edit Fields**, placeholder, disabled, or debug-only nodes unless they clearly reduce complexity. One short sticky-note summary is required on new workflows."
+      - "Do not pass **`active=true`** (create) or toggle activation (update) unless the user explicitly wants the workflow live."
+      - "For **Schedule Trigger** nodes, never create minute-based schedules or any recurrence under **2 hours**; prefer `hoursInterval >= 2` or a less frequent schedule."
+      - "Every workflow created or updated through MCP must keep the **`mcp`** tag; never remove it and never leave a workflow without it."
+      - "Do not require a Notion ticket to create or update a workflow. If the user already has one, treat it as optional business metadata."
+      - "Ask **at most 2 clarifying questions**; if minor details are missing, state the safest brief assumption and proceed."
+      - "Do not add retries, global error workflows, logging, or fallback branches unless the user explicitly asks."
+      - "MCP prompt **`n8n_minimal_workflow_editor`** encodes the same discipline; read the exact body via **`resources/read`** on `n8n://prompts/n8n-minimal-workflow-editor` (full) or `n8n://prompts/n8n-minimal-workflow-editor/static` (rules only)."
+    common_mistakes:
+      - "Scanning all workflows manually — use n8n_find_workflow_by_name when the user gave a title."
+      - "Guessing node `type` strings — use n8n_list_nodes / n8n_get_node_source or n8n_find_node_by_name_or_capability."
+      - "Creating credentials without schema — always n8n_get_credential_schema before n8n_create_credential; list n8n_get_credentials first to reuse."
+      - "Wrong credential type string — must match n8n’s type id from schema or existing credentials."
+      - "Duplicate or conflicting node `id` values — ids must be unique; connections reference node **names**, not ids."
+      - 'Broken `connections` shape — top-level keys are source node **names**; targets use `{ "node": "<targetName>", "type": "main", "index": 0 }` in `main` arrays.'
+      - "Accidentally wiping graph on update — omit `connections` and `settings` unless you intend full replacement; partial node edits merge by id unless `nodes_replace=true`."
+      - "Expecting runs without activation — triggers need correct config and often `active=true` (separate from PUT body in update tool)."
+    escalation: "Authoring: `mcp_proxy://help/by-task/n8n-create-workflow`. Debug: n8n_find_workflow_by_name → n8n_get_workflow → n8n_get_executions; nodes: n8n_list_nodes → n8n_list_node_files → n8n_get_node_source."
+    aliases:
+      - prefer: n8n_find_workflow_by_name
+        over: n8n_get_workflows
+        when: "User supplied a workflow name or clear substring."
+      - prefer: n8n_list_nodes
+        over: n8n_search_nodes
+        when: "You need the canonical package folder list before opening files (predictable, no GitHub code-search limits)."
+      - prefer: n8n_get_credentials
+        over: n8n_create_credential
+        when: "Checking for an existing credential name/type to reuse."
+      - prefer: n8n_get_credential_schema
+        over: n8n_create_credential
+        when: "You do not yet know required `data` fields for a credential type."
+      - prefer: n8n_validate_workflow_definition
+        over: n8n_create_workflow
+        when: "Dry-run structural checks before a write (no API mutation)."
+      - prefer: n8n_find_node_by_name_or_capability
+        over: n8n_list_nodes
+        when: 'Resolving which node folder matches human text like "slack message" without scanning the full list manually.'
+    naming_tags: "Use clear workflow names (team or domain prefix). MCP adds tag `mcp` on create and the proxy automatically injects `user_name` from the authenticated user so `created_by:<name>` and `last_update:<name>` stay visible in the n8n UI."
+
+  sql:
+    title: SQL / warehouse
+    server_ids: [sql-gateway]
+    description: "Read-only SQL against approved models; schema discovery."
+    start_here:
+      schema: sql_gateway_get_schema
+      table_columns: sql_gateway_lookup_table
+      run: sql_gateway_run_query
+    common_mistakes:
+      - "Guessing column names — use sql_gateway_lookup_table or resources sql_gateway://schema/yaml."
+    escalation: "sql_gateway_lookup_table / schema resources → sql_gateway_run_query with tight LIMIT."
+
+  stripe:
+    title: Stripe
+    server_ids: [stripe]
+    description: "Charges, payouts, balance, payment intents, refunds."
+    start_here:
+      payouts: stripe_get_payouts
+      payout_lines: stripe_get_payout_transactions
+    common_mistakes:
+      - "Pulling all charges without time bounds — narrow first."
+    escalation: "stripe_get_payouts → stripe_get_payout_transactions → stripe_get_charge / stripe_get_balance_transaction."
+
+  absence:
+    title: Absence / HR
+    server_ids: [absence]
+    description: "Users and absence periods."
+    start_here:
+      user_lookup: absence_find_user_by_name
+      date_check: absence_is_user_absent_on_date
+    common_mistakes:
+      - "Listing every absence record when only a date check is needed — use absence_is_user_absent_on_date."
+    aliases:
+      - prefer: absence_is_user_absent_on_date
+        over: absence_list_absences
+        when: "Single-date presence check."
+    escalation: "absence_find_user_by_name → absence_is_user_absent_on_date → absence_get_user_absences for detail."
+
+  pipedrive:
+    title: Pipedrive
+    server_ids: [pipedrive]
+    description: "Deals, persons, leads, pipelines."
+    start_here:
+      deal_by_title: pipedrive_find_deal_by_title_or_exact_name
+    escalation: "pipedrive_find_deal_by_title_or_exact_name → pipedrive_get_deal_summary → pipedrive_get_deal."
+
+  moloni:
+    title: Moloni
+    server_ids: [moloni]
+    description: "Customer invoices and credit notes in Moloni (read-only)."
+    start_here:
+      invoices: moloni_list_invoices
+      credit_notes: moloni_list_credit_notes
+    common_mistakes:
+      - "Assuming limit can exceed 50 — Moloni caps qty at 50 per request (the MCP clamps limit)."
+    escalation: "moloni_list_invoices / moloni_list_credit_notes (optional filters) → moloni_get_invoice / moloni_get_credit_note with document_id. Use your_reference to align with portal invoice identifiers."
+
+  breezeway:
+    title: Breezeway
+    server_ids: [breezeway]
+    description: "Properties, tasks, users, and reservations (operations)."
+    start_here:
+      property: breezeway_find_property_by_name_or_external_id
+      tasks: breezeway_list_tasks
+    escalation: "breezeway_find_property_by_name_or_external_id → breezeway_get_property_summary. For task work: breezeway_list_tasks → breezeway_get_task_comments → breezeway_move_task / breezeway_update_task."
+
+  quickbooks:
+    title: QuickBooks
+    server_ids: [quickbooks]
+    description: "Bank accounts and transactions."
+    start_here:
+      accounts: quickbooks_list_bank_accounts
+    escalation: "quickbooks_list_bank_accounts → quickbooks_get_bank_account_by_name → bank transaction tools."
+
+  firestore:
+    title: Firestore
+    server_ids: [firestore-gateway]
+    description: "Document reads and guarded queries."
+    start_here:
+      collections: firestore_gateway_list_collections
+      query: firestore_gateway_query_documents
+    escalation: "firestore_gateway_list_collections → firestore_gateway_query_documents → firestore_gateway_get_document."
+
+tasks:
+  find-reservation:
+    title: "Find a Guesty reservation from human input"
+    domain: guesty
+    primary_tool: guesty_find_reservation
+    also: [guesty_search_reservations]
+  find-listing:
+    title: "Find a Guesty listing from human input"
+    domain: guesty
+    primary_tool: guesty_find_listing
+    also: [guesty_search_listings]
+  guest-calendar:
+    title: "Check Guesty listing availability for dates"
+    domain: guesty
+    primary_tool: guesty_is_listing_available_on_dates
+    also: [guesty_get_listing_calendar]
+  guesty-guest-lookup:
+    title: "Find Guesty guest records"
+    domain: guesty
+    primary_tool: guesty_search_guests
+    also: [guesty_get_guest, guesty_get_guests]
+  zendesk-reservation-ticket:
+    title: "Get Zendesk ticket for a reservation"
+    domain: zendesk
+    primary_tool: zendesk_find_ticket_by_reservation_id
+    also: [zendesk_search_tickets]
+  zendesk-ticket-by-id:
+    title: "Load Zendesk ticket when you have ticket id"
+    domain: zendesk
+    primary_tool: zendesk_get_ticket
+    also: [zendesk_search_tickets]
+  sql-schema:
+    title: "Discover SQL warehouse schema"
+    domain: sql
+    primary_tool: sql_gateway_get_schema
+    also: [sql_gateway_get_schema_yaml, sql_gateway_lookup_table]
+  sql-table-columns:
+    title: "Column list for one warehouse table"
+    domain: sql
+    primary_tool: sql_gateway_lookup_table
+    also: [sql_gateway_get_schema_yaml]
+  sql-run:
+    title: "Run read-only SQL"
+    domain: sql
+    primary_tool: sql_gateway_run_query
+    also: [sql_gateway_lookup_table]
+  n8n-workflow-locate:
+    title: "Find n8n workflow by name"
+    domain: n8n
+    primary_tool: n8n_find_workflow_by_name
+    also: [n8n_get_workflows]
+  n8n-executions:
+    title: "Inspect n8n workflow executions"
+    domain: n8n
+    primary_tool: n8n_get_executions
+    also: [n8n_get_workflow]
+  stripe-payout-recon:
+    title: "Stripe payout and line items"
+    domain: stripe
+    primary_tool: stripe_get_payouts
+    also: [stripe_get_payout_transactions]
+  stripe-charge-lookup:
+    title: "Stripe charge / payment detail"
+    domain: stripe
+    primary_tool: stripe_get_charges
+    also: [stripe_get_charge, stripe_get_payment_intent]
+  pipedrive-deal-resolve:
+    title: "Resolve Pipedrive deal from title"
+    domain: pipedrive
+    primary_tool: pipedrive_find_deal_by_title_or_exact_name
+    also: [pipedrive_search_deals]
+  breezeway-property-resolve:
+    title: "Resolve Breezeway property from name or external id"
+    domain: breezeway
+    primary_tool: breezeway_find_property_by_name_or_external_id
+    also: [breezeway_list_properties_page]
+  quickbooks-bank:
+    title: "QuickBooks bank account and transactions"
+    domain: quickbooks
+    primary_tool: quickbooks_list_bank_accounts
+    also:
+      [quickbooks_get_bank_account_by_name, quickbooks_get_bank_transactions_in]
+  firestore-query-doc:
+    title: "Query Firestore collection"
+    domain: firestore
+    primary_tool: firestore_gateway_query_documents
+    also: [firestore_gateway_list_collections]
+  firestore-get-doc:
+    title: "Read one Firestore document"
+    domain: firestore
+    primary_tool: firestore_gateway_get_document
+    also: [firestore_gateway_query_documents]
+
+workflows:
+  - domain: guesty
+    goal: find-reservation
+    steps:
+      - tool: guesty_find_listing
+        when: "User gave property name only."
+      - tool: guesty_find_reservation
+        when: "Resolve reservation from guest, code, or listing context."
+      - tool: guesty_get_listing_summary
+        when: "Need curated listing detail after resolving listing id."
+  - domain: guesty
+    goal: guest-and-stay-context
+    steps:
+      - tool: guesty_find_reservation
+      - tool: guesty_get_guest
+      - tool: guesty_get_listing_summary
+  - domain: zendesk
+    goal: ticket-from-reservation
+    steps:
+      - tool: zendesk_find_ticket_by_reservation_id
+      - tool: zendesk_get_ticket
+      - tool: zendesk_get_ticket_audits
+  - domain: zendesk
+    goal: view-queue-analytics
+    steps:
+      - tool: zendesk_list_views
+      - tool: zendesk_get_view_ticket_counts
+      - tool: zendesk_list_view_tickets
+  - domain: sql
+    goal: safe-query
+    steps:
+      - tool: sql_gateway_get_schema
+      - tool: sql_gateway_lookup_table
+      - tool: sql_gateway_run_query
+  - domain: stripe
+    goal: payout-ledger
+    steps:
+      - tool: stripe_get_payouts
+      - tool: stripe_get_payout_transactions
+      - tool: stripe_get_balance_transaction
+  - domain: n8n
+    goal: inspect-workflow
+    steps:
+      - tool: n8n_find_workflow_by_name
+      - tool: n8n_get_workflow
+      - tool: n8n_get_executions
+  - domain: n8n
+    goal: author-workflow
+    steps:
+      - tool: n8n_find_workflow_by_name
+        when: "Optional — locate template by title."
+      - tool: n8n_get_workflow
+        when: "Fetch existing graph to copy or patch."
+      - tool: n8n_list_nodes
+      - tool: n8n_list_node_files
+      - tool: n8n_get_node_source
+      - tool: n8n_get_credentials
+      - tool: n8n_get_credential_schema
+      - tool: n8n_validate_workflow_definition
+        when: "Before create/update."
+      - tool: n8n_create_workflow
+        when: "New workflow."
+      - tool: n8n_update_workflow
+        when: "Patch existing id."
+      - tool: n8n_get_executions
+  - domain: absence
+    goal: away-check
+    steps:
+      - tool: absence_find_user_by_name
+      - tool: absence_is_user_absent_on_date
+  - domain: firestore
+    goal: locate-document
+    steps:
+      - tool: firestore_gateway_list_collections
+      - tool: firestore_gateway_query_documents
+      - tool: firestore_gateway_get_document
+  - domain: pipedrive
+    goal: deal-detail
+    steps:
+      - tool: pipedrive_find_deal_by_title_or_exact_name
+      - tool: pipedrive_get_deal_summary
+      - tool: pipedrive_get_deal
+  - domain: breezeway
+    goal: property-context
+    steps:
+      - tool: breezeway_find_property_by_name_or_external_id
+      - tool: breezeway_get_property_summary
+  - domain: quickbooks
+    goal: bank-activity
+    steps:
+      - tool: quickbooks_list_bank_accounts
+      - tool: quickbooks_get_bank_account_by_name
+      - tool: quickbooks_get_bank_transactions_in
+
+intents:
+  - domain: guesty
+    id: resolve_listing_from_name
+    recommended_tool: guesty_find_listing
+    fallback_tools: [guesty_search_listings, guesty_get_listings]
+    required_identifiers: []
+  - domain: guesty
+    id: resolve_reservation_from_human_input
+    recommended_tool: guesty_find_reservation
+    fallback_tools: [guesty_search_reservations, guesty_get_reservations]
+    required_identifiers: []
+  - domain: guesty
+    id: listing_availability
+    recommended_tool: guesty_is_listing_available_on_dates
+    fallback_tools: [guesty_get_listing_calendar]
+    required_identifiers: [listing_id]
+  - domain: absence
+    id: user_absent_on_date
+    recommended_tool: absence_is_user_absent_on_date
+    fallback_tools: [absence_list_absences, absence_get_user_absences]
+    required_identifiers: [user_id_or_resolve_via_find_user_by_name]
+  - domain: zendesk
+    id: ticket_for_reservation
+    recommended_tool: zendesk_find_ticket_by_reservation_id
+    fallback_tools: [zendesk_search_tickets]
+    required_identifiers: [reservation_id]
+  - domain: zendesk
+    id: ticket_by_numeric_id
+    recommended_tool: zendesk_get_ticket
+    fallback_tools: [zendesk_search_tickets]
+    required_identifiers: [ticket_id]
+  - domain: n8n
+    id: workflow_by_name
+    recommended_tool: n8n_find_workflow_by_name
+    fallback_tools: [n8n_get_workflows]
+    required_identifiers: []
+  - domain: sql
+    id: table_columns
+    recommended_tool: sql_gateway_lookup_table
+    fallback_tools: [sql_gateway_get_schema_yaml, sql_gateway_get_schema]
+    required_identifiers: [table_name]
+  - domain: sql
+    id: ad_hoc_readonly_sql
+    recommended_tool: sql_gateway_run_query
+    fallback_tools: [sql_gateway_lookup_table]
+    required_identifiers: []
+  - domain: stripe
+    id: payout_lines
+    recommended_tool: stripe_get_payout_transactions
+    fallback_tools: [stripe_get_payouts]
+    required_identifiers: [payout_id]
+  - domain: pipedrive
+    id: deal_from_title
+    recommended_tool: pipedrive_find_deal_by_title_or_exact_name
+    fallback_tools: [pipedrive_search_deals]
+    required_identifiers: []
+  - domain: breezeway
+    id: property_resolve
+    recommended_tool: breezeway_find_property_by_name_or_external_id
+    fallback_tools: [breezeway_list_properties_page]
+    required_identifiers: []
+  - domain: quickbooks
+    id: bank_account_pick
+    recommended_tool: quickbooks_get_bank_account_by_name
+    fallback_tools: [quickbooks_list_bank_accounts]
+    required_identifiers: []
+  - domain: firestore
+    id: collection_browse
+    recommended_tool: firestore_gateway_list_collections
+    fallback_tools: []
+    required_identifiers: []
+
+# Used for resources/read mcp_proxy://help/tool/{name} and intents fallbacks in rendered tool pages.
+tool_blurbs:
+  guesty_find_listing: "Resolve a listing from human text (title, nickname). Prefer over guesty_search_listings for name-first resolution."
+  guesty_find_reservation: "Resolve a reservation from human context. Prefer before bulk guesty_search_reservations."
+  guesty_search_listings: "Paged listing search API; prefer guesty_find_listing for human property names."
+  guesty_search_reservations: "Structured filters for many reservation rows (dates, listing id, status)."
+  guesty_get_listings: "Plain list/pagination of listings; prefer search/find when filtering."
+  guesty_get_reservations: "Plain list/pagination of reservations; prefer find/search when you have criteria."
+  guesty_get_listing_summary: "Curated listing detail when you have an exact listing id."
+  guesty_get_listing_calendar: "Calendar data for a listing id; use after resolving listing."
+  guesty_is_listing_available_on_dates: "Availability check for listing id + date range."
+  guesty_search_guests: "Find guests with structured filters; use before guesty_get_guest."
+  guesty_get_guest: "Full guest by id after you have guest id."
+  guesty_get_guests: "List guests; prefer guesty_search_guests when filtering."
+  guesty_search_reviews: "Search reviews with filters."
+  guesty_search_owners: "Search owner records."
+  guesty_get_property_logs: "Property logs for investigations; needs listing context."
+  zendesk_find_ticket_by_reservation_id: "Resolver from reservation id to ticket candidates. Proxy shorthand alias: `find_ticket_by_reservation_id`."
+  zendesk_list_views: "List active or all views (ids/titles); use before counts or tickets per view."
+  zendesk_get_view_ticket_counts: "Cached ticket counts for many views (batched); estimates may lag for large queues."
+  zendesk_list_view_tickets: "Paginated tickets for one view id; follow meta.pagination.next_cursor."
+  zendesk_search_tickets: "Raw Zendesk search syntax; prefer find_* when you have reservation id."
+  zendesk_get_ticket: "One ticket by numeric id; prefer after search/find."
+  zendesk_get_ticket_audits: "Ticket change history; needs ticket id."
+  zendesk_get_users: "List or fetch Zendesk users."
+  zendesk_fetch_reservation_record: "Custom object / reservation bridge record."
+  zendesk_list_custom_object_records: "Browse custom object instances."
+  zendesk_search_custom_object_records: "Search custom objects with query."
+  zendesk_get_custom_object_record: "One custom object record by id."
+  n8n_find_workflow_by_name: "Resolver for workflow titles; entry point for workflow debugging and authoring templates."
+  n8n_get_workflows: "List workflows with cursor; use find_by_name when user gave a title."
+  n8n_get_workflow: "Full or summary workflow JSON by id — always GET before a safe n8n_update_workflow merge."
+  n8n_get_executions: "Execution history; filter by workflow_id when known."
+  n8n_list_nodes: "Browse node package folders from n8n’s GitHub nodes tree (discovery step 1)."
+  n8n_list_node_files: "List files in one node package; pair paths with n8n_get_node_source."
+  n8n_get_node_source: "Read node TypeScript source for properties/defaults (discovery step 3)."
+  n8n_search_nodes: "GitHub code search across node sources; may rate-limit without GITHUB_TOKEN."
+  n8n_find_node_by_name_or_capability: "Rank node folders by name/capability query; optional search fallback."
+  n8n_validate_workflow_definition: "Dry-run structural validation before create/update (no n8n write)."
+  n8n_get_credentials: "List credentials (names and types only) — call before creating duplicates."
+  n8n_get_credential_schema: "JSON schema for a credential type — required before n8n_create_credential."
+  n8n_create_workflow: "Create workflow (write); requires nodes + connections; optional credential specs."
+  n8n_update_workflow: "Update workflow (write); GET-merge-PUT with merge-by-id nodes by default."
+  n8n_create_credential: "Create credential (write); use schema + list first."
+  n8n_stop_execution: "Stop run (write)."
+  n8n_retry_execution: "Retry run (write)."
+  sql_gateway_get_schema: "Narrative schema / joins guide (markdown)."
+  sql_gateway_get_schema_yaml: "Full schema index as YAML."
+  sql_gateway_lookup_table: "Columns for one table; use before run_query."
+  sql_gateway_run_query: "Read-only SQL with paging; use after schema/lookup."
+  stripe_get_payouts: "List payouts; start of payout reconciliation."
+  stripe_get_payout_transactions: "Line items for one payout id."
+  stripe_get_balance: "Account balance snapshot."
+  stripe_get_balance_transaction: "One balance transaction by id."
+  stripe_get_charges: "List charges with filters."
+  stripe_get_charge: "One charge by id."
+  stripe_get_payment_intent: "PaymentIntent detail."
+  stripe_get_refund: "Refund record."
+  absence_find_user_by_name: "Resolve absence user id from name."
+  absence_is_user_absent_on_date: "Single-date absence check; prefer over listing all absences."
+  absence_list_absences: "Page absences with filters; use for ranges or many users."
+  absence_list_users: "Page all users; prefer find_user_by_name for lookup."
+  absence_get_user_absences: "Absences for one user id."
+  moloni_list_invoices: "Paginated Moloni customer invoices; optional filters (your_reference, dates, customer_id)."
+  moloni_get_invoice: "Full Moloni invoice by document_id."
+  moloni_list_credit_notes: "Paginated Moloni credit notes; same filter pattern as invoices."
+  moloni_get_credit_note: "Full Moloni credit note by document_id."
+  pipedrive_find_deal_by_title_or_exact_name: "Deal resolver from human title."
+  pipedrive_search_deals: "Structured deal search."
+  pipedrive_get_deal_summary: "Compact deal after id known."
+  pipedrive_get_deal: "Full deal by id."
+  pipedrive_list_deals: "Browse deals with pagination."
+  pipedrive_search_persons: "Search persons."
+  pipedrive_get_person: "Person by id."
+  pipedrive_list_persons: "List persons."
+  pipedrive_search_leads: "Search leads."
+  pipedrive_get_lead: "Lead by id."
+  pipedrive_list_leads: "List leads."
+  pipedrive_search_activities: "Search activities."
+  pipedrive_get_activity: "Activity by id."
+  pipedrive_list_activities: "List activities."
+  pipedrive_search_pipelines: "Search pipelines."
+  pipedrive_get_pipeline: "Pipeline by id."
+  pipedrive_list_pipelines: "List pipelines."
+  pipedrive_search_stages: "Search stages."
+  pipedrive_get_stage: "Stage by id."
+  pipedrive_list_stages: "List stages."
+  breezeway_find_property_by_name_or_external_id: "Property resolver from name or external id."
+  breezeway_get_property_summary: "Compact property after id known."
+  breezeway_list_properties_page: "Browse properties page by page."
+  breezeway_list_users: "List Breezeway users."
+  breezeway_list_tasks: "List Breezeway tasks; can hydrate comments inline."
+  breezeway_triage_tasks: "Portfolio-wide Breezeway task ranking and urgency grouping."
+  breezeway_get_task_comments: "Retrieve comments for one Breezeway task."
+  breezeway_move_task: "Write: close, approve, or reopen a Breezeway task."
+  breezeway_update_task: "Write: patch a Breezeway task."
+  breezeway_get_reservation_by_external_id: "Reservation lookup by external id."
+  quickbooks_list_bank_accounts: "List linked bank accounts."
+  quickbooks_get_bank_account_by_name: "Pick account by human name."
+  quickbooks_get_bank_transactions_in: "Incoming bank txn lines."
+  quickbooks_get_bank_transactions_out: "Outgoing bank txn lines."
+  quickbooks_get_bank_balances: "Balances snapshot."
+  firestore_gateway_list_collections: "Top-level collection discovery."
+  firestore_gateway_query_documents: "Guarded query; use after listing collections."
+  firestore_gateway_get_document: "One document by path."
+  firestore_gateway_count_documents: "Count helper for queries."
+
+# Rich routing hints merged into mcp_proxy://help/tool/{name} and by-task pages (optional fields per tool).
+tool_help_rich:
+  mcp_proxy_list_skills:
+    summary: "List the shared Codex skills currently published by the MCP proxy."
+    required_inputs:
+      - "No required fields. Optional `include_files=true` adds the packaged file list for each skill."
+    failure_modes:
+      - "This proxy-local tool should not depend on upstream server permissions."
+    if_empty: "No published skills are currently available from this proxy catalog."
+    next_steps:
+      - "Call `mcp_proxy_install_skill` with a `skill_name` from the returned catalog."
+  mcp_proxy_install_skill:
+    summary: "Prepare install metadata for one shared Codex skill, including the downloadable tar.gz bundle."
+    required_inputs:
+      - "`skill_name` (required) — exact catalog name returned by `mcp_proxy_list_skills`."
+    failure_modes:
+      - "**validation_error** if `skill_name` is omitted or unknown."
+    if_empty: "Not applicable; on success the tool returns bundle metadata and install commands."
+    next_steps:
+      - "Download the returned `bundle_url`, unpack it, move the skill folder into `~/.codex/skills/<skill-name>`, then restart Codex."
+      - "Ask before replacing an existing installed skill with the same name."
+  mcp_proxy_request_skill_update:
+    summary: "Submit a change request for a shared Codex skill when the published instructions should improve for everyone."
+    required_inputs:
+      - "`skill_name` (required) — exact published skill name."
+      - "`summary` (required) — short statement of the missing rule, example, or behavior."
+    failure_modes:
+      - "**validation_error** if the skill does not exist or required fields are missing."
+      - "**rate_limited** if too many requests are submitted in a short time."
+    if_empty: "Not applicable; on success the tool returns a request id."
+    next_steps:
+      - "Use the request id for follow-up and include specific examples in `details` or `desired_outcome`."
+  mcp_proxy_request_improvement:
+    summary: "Submit a product improvement request when a proxied tool is broken, incomplete, or an upstream should expose more tools."
+    required_inputs:
+      - "`summary` (required) — short statement of the gap or failure."
+      - "At least one of `tool_names` or `server_ids` (required) — identify what should improve."
+    failure_modes:
+      - "**validation_error** if you omit both `tool_names` and `server_ids`, or reference an unknown tool/server."
+      - "**rate_limited** if you submit requests too quickly or already have too many pending requests."
+    if_empty: "Not applicable; on success the tool returns a request id. If it fails validation, correct the target tool/server names and retry."
+    next_steps:
+      - "Use the returned request id for tracking in the MCP Proxy Approvals UI."
+      - "When the request came from an error, include `error_context.failed_tool_name`, `error_context.error_message`, and `error_context.error_code` when available."
+  guesty_find_listing:
+    required_inputs:
+      - "`query` (string, required) — listing title, nickname, or address fragment; not a Guesty `_id`."
+    failure_modes:
+      - "**validation_error** if `query` is empty or whitespace."
+      - "**guesty_api_error** — transport or Guesty outage; `retryable` in tool envelope."
+    if_empty: "Try shorter or alternate spellings; confirm the listing is active in Guesty. If the user gave a code or id, use `guesty_search_listings` / `guesty_get_listings` with filters instead of this resolver."
+    next_steps:
+      - "Use returned `_id` with `guesty_get_listing_summary` or pass listing context into `guesty_find_reservation`."
+  guesty_find_reservation:
+    required_inputs:
+      - "At least one of: `confirmation_code`, `guest_name`, `listing_query`, `check_in`, `check_out`."
+    failure_modes:
+      - "**validation_error** when no identifier is provided or dates are not `YYYY-MM-DD`."
+      - "**guesty_api_error** on upstream failure."
+    if_empty: "Widen dates, drop optional filters, or resolve listing first with `guesty_find_listing` and pass `listing_query`. For structured filters use `guesty_search_reservations`."
+    next_steps:
+      - "With `listingId` from a row, call `guesty_get_listing_summary` for property context."
+  guesty_get_listing_summary:
+    required_inputs:
+      - "`listing_id` (string) — Guesty listing `_id`."
+    failure_modes:
+      - "**validation_error** if `listing_id` missing."
+      - "**guesty_api_error** if listing not found or API fails."
+    if_empty: "N/A for success path; not-found is an error. Re-check id from `guesty_find_listing` or reservation payload."
+    next_steps:
+      - "Use raw `guesty_get_listings` / listing APIs only if summary fields are insufficient."
+  guesty_search_reservations:
+    required_inputs:
+      - "`filters` (list of `{field, operator, value}`) when narrowing; optional pagination `limit` / `skip`."
+    failure_modes:
+      - "**guesty_api_error** on bad filter shape or upstream errors."
+    if_empty: "`results: []` is valid — tighten or loosen filters, check listing id, or use `guesty_find_reservation` for human clues."
+    next_steps:
+      - "Prefer `guesty_find_reservation` when the user gave a name, code, or informal listing hint."
+  zendesk_find_ticket_by_reservation_id:
+    required_inputs:
+      - "`reservation_id` (string) — PMS / Guesty reservation identifier."
+    failure_modes:
+      - "**validation_error** if `reservation_id` empty."
+      - "**upstream_failed** on Zendesk or custom-object errors."
+    if_empty: 'No linked ticket candidates — try `zendesk_search_tickets` with `type:ticket "<id>"` or ask for confirmation code / guest email.'
+    next_steps:
+      - "Call `zendesk_get_ticket` on a candidate id; use `zendesk_get_ticket_audits` for history."
+  zendesk_search_tickets:
+    required_inputs:
+      - "`query_string` — Zendesk search syntax (e.g. `type:ticket status:new`)."
+    failure_modes:
+      - "**upstream_failed** on API errors."
+    if_empty: "Broaden query, remove restrictive clauses, or use `zendesk_find_ticket_by_reservation_id` if you have a reservation id."
+    next_steps:
+      - "Use `zendesk_get_ticket` once you have a numeric ticket id."
+  zendesk_get_ticket:
+    required_inputs:
+      - "`ticket_id` (positive integer)."
+    failure_modes:
+      - "**validation_error** for non-numeric or non-positive id."
+      - "**not_found** if ticket does not exist."
+    if_empty: "N/A; use search/find first to obtain `ticket_id`."
+    next_steps:
+      - "`zendesk_get_ticket_audits` for timeline; custom objects if reservation linking needed."
+  n8n_find_workflow_by_name:
+    summary: "Resolve workflow id from a title fragment before get, update, or execution inspection."
+    required_inputs:
+      - "`query` (string) — workflow name fragment; parameter is not `name`."
+    failure_modes:
+      - "**validation_error** if `query` empty."
+      - "HTTP errors from n8n API."
+    if_empty: "Increase `limit_pages`, try substring, or list with `n8n_get_workflows` and filter locally."
+    next_steps:
+      - "`n8n_get_workflow` then `n8n_get_executions` with `workflow_id`; for authoring, clone node patterns from the fetched JSON."
+  n8n_get_workflows:
+    required_inputs:
+      - "Optional `limit`, `cursor` per tool schema."
+    failure_modes:
+      - "HTTP errors from n8n API."
+    if_empty: "Legitimate last page or empty instance — widen search; if user named a workflow prefer `n8n_find_workflow_by_name`."
+    next_steps:
+      - "`n8n_get_workflow` for a chosen id; `n8n_find_workflow_by_name` when you have a title hint."
+  n8n_get_workflow:
+    summary: "Load the canonical workflow document (nodes, connections, settings). Use before patching with `n8n_update_workflow`."
+    authoring_style:
+      - "Always **GET before patch** — preserves unrelated nodes and avoids accidental full-graph rewrites."
+      - "When changing behavior, edit **only** what is needed; do not rename, move, or refactor unrelated nodes."
+    required_inputs:
+      - "`workflow_id` (string) from list or find tool."
+    failure_modes:
+      - "**validation_error** if id missing."
+      - "HTTP errors (404 if deleted)."
+    if_empty: "N/A on success path."
+    next_steps:
+      - "`n8n_get_executions` with `workflow_id`; `n8n_validate_workflow_definition` after local edits; node debugging via `n8n_list_node_files` / `n8n_get_node_source`."
+  n8n_get_executions:
+    required_inputs:
+      - "Optional `workflow_id`, `status`, `cursor` for pagination."
+    failure_modes:
+      - "HTTP errors from n8n."
+    if_empty: "No runs yet or filters too strict — widen status, clear `workflow_id` to scan (careful with volume), check workflow is active and triggers fire."
+    next_steps:
+      - "`n8n_get_workflow` to compare definition; `n8n_retry_execution` / `n8n_stop_execution` per product rules."
+  n8n_list_nodes:
+    summary: "Step 1 of node discovery: list package folder names from the n8n nodes repo on GitHub."
+    authoring_style:
+      - "Pick **only** the integrations you need — fewer node types usually means a smaller, clearer workflow."
+      - "Prefer a **single native node** (with expressions) over chaining extra transformers or a Code node."
+    required_inputs:
+      - "Optional `structured` (default true) — shape of returned list."
+    failure_modes:
+      - "GitHub HTTP errors (rate limit, network)."
+    if_empty: "Rare for healthy GitHub fetch — retry; verify `GITHUB_TOKEN` if rate-limited."
+    next_steps:
+      - "`n8n_list_node_files(node_name=...)` then `n8n_get_node_source(file_path=...)`; or `n8n_find_node_by_name_or_capability` to shortlist folders."
+  n8n_list_node_files:
+    summary: "Step 2: list `.ts` and other files for one node package; pick e.g. `*.node.ts` for properties."
+    authoring_style:
+      - "Open **one** node implementation and copy **minimal** `parameters` — avoid cargo-culting every optional field."
+    required_inputs:
+      - "`node_name` (string) — folder name from `n8n_list_nodes` or finder tool."
+    failure_modes:
+      - "GitHub HTTP errors; empty `items` if `node_name` missing (validation success, not an error)."
+    if_empty: "Pass non-empty `node_name`; if folder wrong use `n8n_find_node_by_name_or_capability` or `n8n_search_nodes`."
+    next_steps:
+      - "`n8n_get_node_source` with repo-relative `file_path` from an item’s path."
+  n8n_get_node_source:
+    summary: "Step 3: read source for `properties` / defaults — paste shapes into workflow node `parameters` carefully."
+    authoring_style:
+      - "Use the source to confirm **required** properties only; default the rest unless you need them — smaller graphs stay readable."
+    required_inputs:
+      - "`file_path` — e.g. `nodes/Slack/Slack.node.ts` from list_node_files."
+    failure_modes:
+      - "GitHub raw fetch errors."
+    if_empty: "Pass `file_path`; empty text means missing path — re-list files or search."
+    next_steps:
+      - "Build or patch nodes in `n8n_create_workflow` / `n8n_update_workflow`; then `n8n_validate_workflow_definition`."
+  n8n_search_nodes:
+    summary: "GitHub **code search** when keyword discovery across files is needed; prefer folder list + source when you already know the package."
+    authoring_style:
+      - 'Use search to find **one** right node type; avoid piling on multiple similar integrations "just in case".'
+    required_inputs:
+      - "`query` (non-empty string) — search fragment."
+    failure_modes:
+      - "**github_rate_limited** /401 / 403 — set `GITHUB_TOKEN` and retry."
+      - "Generic HTTP errors."
+    if_empty: "Broaden `query`; if search unavailable use `n8n_list_nodes` + `n8n_find_node_by_name_or_capability`."
+    next_steps:
+      - "`n8n_get_node_source` on a returned `path`; then author workflow."
+  n8n_find_node_by_name_or_capability:
+    summary: "Shortlist node package folders from a human query; reduces guesswork without reading the entire node list."
+    authoring_style:
+      - "Pick the **top-scoring** folder when it clearly matches; avoid exploring every GitHub hit — stay minimal."
+    required_inputs:
+      - '`query` (string) — human hint e.g. "slack message", "http request".'
+    failure_modes:
+      - "**validation_error** if `query` empty."
+      - "GitHub errors when listing or searching."
+    if_empty: "Try `n8n_search_nodes`; shorten query; browse `n8n_list_nodes` manually."
+    next_steps:
+      - "`n8n_list_node_files(node_name=<top_match>)` → `n8n_get_node_source`."
+  n8n_validate_workflow_definition:
+    authoring_style:
+      - "Run before writes on non-trivial graphs; fixing duplicate names or bad wiring early keeps the workflow **lean** and valid."
+    required_inputs:
+      - "`nodes` (list) and `connections` (object) for full checks; optional `name`, `settings`."
+    failure_modes:
+      - "N/A — returns `valid` false with `errors` instead of throwing for structural issues."
+    if_empty: "N/A."
+    next_steps:
+      - "Before moving on to workflow writes, load MCP prompt `mcp_proxy_n8n_workflow_assistant` and confirm the relevant `mcp_proxy://help/tool/...` pages."
+      - "`n8n_create_workflow` or `n8n_update_workflow` after fixing errors; resource `n8n://templates/workflow-starter-minimal` for a skeleton."
+  n8n_get_credentials:
+    summary: "Non-secret listing — use to reuse existing credential **name** + **type** before `n8n_create_credential`."
+    authoring_style:
+      - "**Reuse** an existing `(name, type)` in node `credentials` maps whenever possible — fewer credentials means less noise and fewer secrets to manage."
+      - "Call with **`fetch_all=true`** when deduplicating before bulk authoring (trade latency for certainty)."
+    required_inputs:
+      - "Optional pagination/limit per schema."
+    failure_modes:
+      - "HTTP errors from n8n."
+    if_empty: "No credentials in instance — you must `n8n_get_credential_schema` + `n8n_create_credential` or pass `credentials` on workflow create."
+    next_steps:
+      - "`n8n_get_credential_schema` for the `type` you need; `n8n_create_credential` if no row matches."
+  n8n_get_credential_schema:
+    summary: "Required before creating a credential — defines `data` fields and credential `type` string."
+    authoring_style:
+      - "Fetch schema **only** when you must **create**; if `n8n_get_credentials` already has a usable row, skip creation entirely."
+      - "Wrong `type` strings bloat debugging — confirm `type` from schema or an existing credential row, not from memory."
+    required_inputs:
+      - "`credential_type` (string) — n8n type id (from docs, existing credential, or node source)."
+    failure_modes:
+      - "**validation_error** if type missing."
+      - "HTTP404 if type unknown."
+    if_empty: "N/A — wrong type yields error; confirm type from node source or existing `n8n_get_credentials` rows."
+    next_steps:
+      - "`n8n_create_credential` with `name`, `type`, `data` matching schema; then reference in node `credentials` or workflow `credentials` arg."
+  n8n_create_credential:
+    summary: "Write: creates stored credential. Never log secrets; pass `data` only via tool args."
+    authoring_style:
+      - "Create **only** when no existing credential can be reused — every new credential is operational overhead."
+      - "Prefer workflow `credentials` specs on create/update so the server can **reuse by name+type** automatically."
+    required_inputs:
+      - "`name`, `type`, `data` per tool schema — `data` keys must match `n8n_get_credential_schema`."
+    failure_modes:
+      - "**validation_error** on bad shape."
+      - "HTTP 400 on invalid type or data."
+    if_empty: "N/A."
+    next_steps:
+      - "`n8n_get_credentials` to confirm; attach to nodes via workflow `credentials` list on create/update or node `credentials` map."
+  n8n_create_workflow:
+    summary: "Write: POST a new workflow. Tags include `mcp`; the proxy auto-injects `user_name` from the authenticated user so `created_by:<name>` is added automatically; `summary` is required and becomes a sticky note in the canvas."
+    authoring_style:
+      - "Agents should first load MCP prompt **`mcp_proxy_n8n_workflow_assistant`** and follow `mcp_proxy://help/n8n` plus `mcp_proxy://help/by-task/n8n-create-workflow` before calling this tool for real workflow authoring."
+      - "Prefer **updating** an existing workflow if one already fits — **create** only when there is no suitable workflow to extend."
+      - "Ship the **smallest correct graph**: fewest nodes, native nodes + expressions over Code, no extra Set/placeholder nodes beyond the required summary sticky note."
+      - "**Reuse credentials** (`n8n_get_credentials` first); do not activate (`active=true`) unless the user explicitly wants it live."
+      - "Do not block creation on a Notion ticket. Use one only as optional metadata when the user already provides it."
+      - "Ask **at most 2 clarifying questions**; otherwise state brief assumptions."
+      - "Cookbook JSON below is **illustrative** — in production, strip examples down to the minimum nodes and parameters you actually need."
+    required_inputs:
+      - "`name` (string)."
+      - "`summary` (string) — short description that the server writes into a Sticky Note."
+      - "`nodes` (non-null list) — each node needs `id`, `name`, `type`, `typeVersion`, `position` ([x,y]), `parameters` (object)."
+      - "`connections` (object) — keys are **source node names**; see deep dive."
+    failure_modes:
+      - "**validation_error** if `name`, `summary`, `nodes`, or `connections` missing."
+      - "HTTP 400 if n8n rejects extra read-only fields on nodes, bad types, or malformed connections."
+      - "Credential normalization errors from `credentials` list."
+    if_empty: "N/A on success."
+    next_steps:
+      - "Response includes `mcp_next_steps`; always `n8n_get_workflow` with returned `id`; then `n8n_get_executions` after trigger fires."
+    deep_dive: |
+      **Minimalism**: The **Authoring style** section on this page and on `mcp_proxy://help/n8n` is normative — prefer the smallest correct workflow, reuse credentials, avoid unnecessary Code/Set/Note nodes, and do not activate unless asked.
+
+      **MCP-native prerequisite**: before relying on this tool for workflow authoring, read `mcp_proxy://help/n8n`, `mcp_proxy://help/by-task/n8n-create-workflow`, and fetch prompt `mcp_proxy_n8n_workflow_assistant` with `prompts/get`.
+
+      **Minimal node** (conceptual): `{ "id": "1", "name": "Start", "type": "n8n-nodes-base.manualTrigger", "typeVersion": 1, "position": [0, 0], "parameters": {} }`
+
+      **Minimal connections**: top-level keys match **source** node **`name`** (not `id`). Under `main`, each output is a list of lists of links:
+      `{ "Start": { "main": [ [ { "node": "NextNodeName", "type": "main", "index": 0 } ] ] } }`
+
+      **Credential injection**: optional `credentials` argument is a list of `{ name, type, data }`. The server creates or reuses credentials and patches matching nodes that reference that name/type. Prefer listing `n8n_get_credentials` first. Do not paste secrets into chat.
+
+      **Activation**: `active=true` runs activate after create (separate API call). If activation fails, workflow may still exist — fetch by id and fix nodes/parameters.
+
+      **Starter**: read MCP resource `n8n://templates/workflow-starter-minimal`.
+
+      Full journey: `mcp_proxy://help/by-task/n8n-create-workflow`.
+    cookbooks:
+      - title: "Webhook → Set → Slack"
+        body: |
+          Replace credential placeholders with real `n8n_create_credential` output or use the workflow `credentials` arg. By default, Slack nodes should reuse the credential named `Slack n8n Bot` unless the user explicitly says otherwise or the target workflow already uses another approved Slack credential. Slack node needs valid OAuth2 or access token credential type per your n8n version.
+
+          ```json
+          {
+            "name": "Cookbook Webhook Slack",
+            "nodes": [
+              {
+                "id": "w1",
+                "name": "Webhook",
+                "type": "n8n-nodes-base.webhook",
+                "typeVersion": 2,
+                "position": [0, 0],
+                "parameters": { "path": "mcp-cookbook-webhook", "httpMethod": "POST", "responseMode": "onReceived" }
+              },
+              {
+                "id": "s1",
+                "name": "Shape",
+                "type": "n8n-nodes-base.set",
+                "typeVersion": 3,
+                "position": [220, 0],
+                "parameters": { "assignments": { "assignments": [ { "id": "a1", "name": "text", "value": "={{ $json.body.message }}", "type": "string" } ] } }
+              },
+              {
+                "id": "sl1",
+                "name": "Slack",
+                "type": "n8n-nodes-base.slack",
+                "typeVersion": 2,
+                "position": [440, 0],
+                "parameters": { "resource": "message", "operation": "post", "channel": "#general", "text": "={{ $json.text }}" },
+                "credentials": { "slackApi": { "id": "YOUR_CREDENTIAL_ID", "name": "Slack n8n Bot" } }
+              }
+            ],
+            "connections": {
+              "Webhook": { "main": [ [ { "node": "Shape", "type": "main", "index": 0 } ] ] },
+              "Shape": { "main": [ [ { "node": "Slack", "type": "main", "index": 0 } ] ] }
+            },
+            "settings": { "executionOrder": "v1" }
+          }
+          ```
+      - title: "Cron → HTTP Request → Email"
+        body: |
+          Uses schedule trigger, HTTP node, and SMTP send. Set `YOUR_CREDENTIAL_ID` for SMTP from `n8n_get_credentials` or create via schema.
+
+          ```json
+          {
+            "name": "Cookbook Cron HTTP Email",
+            "nodes": [
+              {
+                "id": "c1",
+                "name": "Cron",
+                "type": "n8n-nodes-base.scheduleTrigger",
+                "typeVersion": 1,
+                "position": [0, 0],
+                "parameters": { "rule": { "interval": [ { "field": "hours", "hoursInterval": 6 } ] } }
+              },
+              {
+                "id": "h1",
+                "name": "HTTP",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4,
+                "position": [240, 0],
+                "parameters": { "method": "GET", "url": "https://httpbin.org/get", "options": {} }
+              },
+              {
+                "id": "e1",
+                "name": "Email",
+                "type": "n8n-nodes-base.emailSend",
+                "typeVersion": 2,
+                "position": [480, 0],
+                "parameters": {
+                  "fromEmail": "automation@example.com",
+                  "toEmail": "ops@example.com",
+                  "subject": "Cron check",
+                  "emailFormat": "text",
+                  "text": "={{ JSON.stringify($json) }}"
+                },
+                "credentials": { "smtp": { "id": "YOUR_CREDENTIAL_ID", "name": "SMTP" } }
+              }
+            ],
+            "connections": {
+              "Cron": { "main": [ [ { "node": "HTTP", "type": "main", "index": 0 } ] ] },
+              "HTTP": { "main": [ [ { "node": "Email", "type": "main", "index": 0 } ] ] }
+            },
+            "settings": { "executionOrder": "v1" }
+          }
+          ```
+      - title: "Manual → IF → HTTP (form / validation pattern)"
+        body: |
+          Pattern for “input → validate → branch”. Adjust IF conditions and HTTP CRM node to your vendor (`type` / `parameters` from `n8n_get_node_source`).
+
+          ```json
+          {
+            "name": "Cookbook Validate CRM",
+            "nodes": [
+              {
+                "id": "m1",
+                "name": "Manual",
+                "type": "n8n-nodes-base.manualTrigger",
+                "typeVersion": 1,
+                "position": [0, 0],
+                "parameters": {}
+              },
+              {
+                "id": "if1",
+                "name": "Valid",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2,
+                "position": [220, 0],
+                "parameters": { "conditions": { "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" }, "conditions": [ { "id": "c1", "leftValue": "={{ $json.email }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty" } } ], "combinator": "and" } }
+              },
+              {
+                "id": "http1",
+                "name": "CRM",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4,
+                "position": [460, -80],
+                "parameters": { "method": "POST", "url": "https://api.example.com/contacts", "sendBody": true, "specifyBody": "json", "jsonBody": "={{ JSON.stringify($json) }}" }
+              }
+            ],
+            "connections": {
+              "Manual": { "main": [ [ { "node": "Valid", "type": "main", "index": 0 } ] ] },
+              "Valid": { "main": [ [ { "node": "CRM", "type": "main", "index": 0 } ], [] ] }
+            },
+            "settings": { "executionOrder": "v1" }
+          }
+          ```
+      - title: "Error trigger → Slack alert"
+        body: |
+          Uses n8n error trigger; Slack credential placeholder as above.
+
+          ```json
+          {
+            "name": "Cookbook Error Slack",
+            "nodes": [
+              {
+                "id": "err1",
+                "name": "Error Trigger",
+                "type": "n8n-nodes-base.errorTrigger",
+                "typeVersion": 1,
+                "position": [0, 0],
+                "parameters": {}
+              },
+              {
+                "id": "sl1",
+                "name": "Slack",
+                "type": "n8n-nodes-base.slack",
+                "typeVersion": 2,
+                "position": [260, 0],
+                "parameters": { "resource": "message", "operation": "post", "channel": "#alerts", "text": "={{ $json.execution.url + ' failed: ' + $json.execution.error.message }}" },
+                "credentials": { "slackApi": { "id": "YOUR_CREDENTIAL_ID", "name": "Slack n8n Bot" } }
+              }
+            ],
+            "connections": {
+              "Error Trigger": { "main": [ [ { "node": "Slack", "type": "main", "index": 0 } ] ] }
+            },
+            "settings": { "executionOrder": "v1" }
+          }
+          ```
+      - title: "Code → HTTP (AI / text processing pattern)"
+        body: |
+          Code node runs JS; output feeds HTTP POST. Tune `typeVersion` from `n8n_get_node_source` for your n8n release.
+
+          ```json
+          {
+            "name": "Cookbook Code HTTP",
+            "nodes": [
+              {
+                "id": "m1",
+                "name": "Manual",
+                "type": "n8n-nodes-base.manualTrigger",
+                "typeVersion": 1,
+                "position": [0, 0],
+                "parameters": {}
+              },
+              {
+                "id": "code1",
+                "name": "Process",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [220, 0],
+                "parameters": { "jsCode": "return [{ json: { summary: ($input.first().json.inputText || '').slice(0, 500) } }];" }
+              },
+              {
+                "id": "http1",
+                "name": "Downstream",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4,
+                "position": [440, 0],
+                "parameters": { "method": "POST", "url": "https://httpbin.org/post", "sendBody": true, "specifyBody": "json", "jsonBody": "={{ JSON.stringify($json) }}" }
+              }
+            ],
+            "connections": {
+              "Manual": { "main": [ [ { "node": "Process", "type": "main", "index": 0 } ] ] },
+              "Process": { "main": [ [ { "node": "Downstream", "type": "main", "index": 0 } ] ] }
+            },
+            "settings": { "executionOrder": "v1" }
+          }
+          ```
+  n8n_update_workflow:
+    summary: "Write: GET existing workflow, merge your fields, PUT. Safe partial **node** edits merge by `id` unless `nodes_replace=true`."
+    authoring_style:
+      - "Agents should first load MCP prompt **`mcp_proxy_n8n_workflow_assistant`** and follow `mcp_proxy://help/n8n` before calling this tool for real workflow editing."
+      - "Default path for existing workflows: **GET → minimal patch → update** — touch only nodes/fields that must change."
+      - "Omit **`connections`** and **`settings`** unless you intentionally replace them entirely (full replace is easy to get wrong)."
+      - "Do not toggle **`active`** unless the user asked; keep unrelated nodes and layout stable."
+      - "Same anti-noise rules as create: **smallest correct graph**, **reuse credentials**, **native nodes over Code**, no gratuitous Set/Note nodes."
+    required_inputs:
+      - "`workflow_id` (string)."
+    failure_modes:
+      - "**validation_error** if `workflow_id` missing."
+      - "HTTP 400 if n8n rejects stripped fields, bad connections, or invalid settings keys."
+    if_empty: "N/A."
+    next_steps:
+      - "Use `mcp_next_steps` in response; re-fetch with `n8n_get_workflow`; inspect `n8n_get_executions`."
+    deep_dive: |
+      **Safe edit loop**: `n8n_get_workflow` → edit locally → `n8n_update_workflow` with only changed top-level keys.
+
+      **Nodes**: Default **merge by `id`**: existing node is deep-copied, patch fields overlay; nested `parameters` objects are **shallow-merged**. New ids in the patch list are **appended**. With **`nodes_replace=true`**, the nodes array becomes **exactly** the list you pass (dangerous if incomplete).
+
+      **Connections**: If you pass `connections`, the object **replaces the entire connections graph**. To keep edges, omit `connections` or send the full merged object from your GET.
+
+      **Settings**: If you pass `settings`, it **replaces** workflow settings (server filters to allowed API keys). Omit to preserve.
+
+      **active**: Handled **after** PUT via activate/deactivate endpoint when you change activation vs previous state.
+
+      **Credentials**: Optional `credentials` list creates/reuses and patches nodes same as create.
+
+      **Example partial node patch** (merge into existing node with id `abc123`): pass `nodes=[{"id": "abc123", "parameters": {"url": "https://example.com"}}]` with `nodes_replace=false`.
+  n8n_stop_execution:
+    required_inputs:
+      - "`execution_id` (positive integer string)."
+    failure_modes:
+      - "**validation_error**; HTTP errors."
+    if_empty: "N/A."
+    next_steps:
+      - "`n8n_get_executions` to confirm status."
+  n8n_retry_execution:
+    required_inputs:
+      - "`execution_id` (positive integer string)."
+    failure_modes:
+      - "**validation_error**; HTTP errors if retry not allowed."
+    if_empty: "N/A."
+    next_steps:
+      - "`n8n_get_executions` for new run id."
+  sql_gateway_get_schema:
+    required_inputs:
+      - "None — narrative markdown guide."
+    failure_modes:
+      - "**schema_not_found** if deploy is missing schema files."
+    if_empty: "N/A."
+    next_steps:
+      - "`sql_gateway_get_schema_yaml` or `sql_gateway_lookup_table` for columns; then `sql_gateway_run_query`."
+  sql_gateway_lookup_table:
+    required_inputs:
+      - "`table_name` — exact or unique prefix against schema YAML."
+    failure_modes:
+      - "**validation_error**, **ambiguous_prefix**, **table_not_found**, **schema_not_found**."
+    if_empty: "N/A; pick a valid table from schema or error’s candidate list."
+    next_steps:
+      - "`sql_gateway_run_query` with correct column names; use `get_schema` for join guidance."
+  sql_gateway_run_query:
+    required_inputs:
+      - "`sql` — single read-only `SELECT` / `WITH … SELECT`; `page`, `page_size` (1–500)."
+    failure_modes:
+      - "Validation rejects writes or bad SQL; warehouse errors in envelope."
+    if_empty: "Legitimate empty result — broaden `WHERE`, check table and filters via `lookup_table`."
+    next_steps:
+      - "Refine SQL; never guess columns without `lookup_table` / schema resources."
+  stripe_get_payouts:
+    required_inputs:
+      - "Optional time / id filters per tool schema; narrow for large accounts."
+    failure_modes:
+      - "Stripe API errors in tool envelope."
+    if_empty: "Expand date window or check account; confirm API key and environment."
+    next_steps:
+      - "`stripe_get_payout_transactions` for a chosen payout id."
+  stripe_get_payout_transactions:
+    required_inputs:
+      - "Payout identifier as required by tool (see `tools/list` schema)."
+    failure_modes:
+      - "Stripe API errors."
+    if_empty: "Verify payout id from `stripe_get_payouts`; payout may have no lines."
+    next_steps:
+      - "`stripe_get_balance_transaction` / `stripe_get_charge` for line drill-down."
+  absence_find_user_by_name:
+    required_inputs:
+      - "`name` (non-empty string)."
+    failure_modes:
+      - "**validation_error** for empty name."
+      - "Upstream absence.io failures."
+    if_empty: "No match — refine name, check inactive excluded via `exclude_inactive`, or use known `user_id`."
+    next_steps:
+      - "`absence_is_user_absent_on_date` with resolved id or disambiguated `user_name`."
+  absence_is_user_absent_on_date:
+    required_inputs:
+      - "`date` as `YYYY-MM-DD`; plus `user_id` **or** `user_name`."
+    failure_modes:
+      - "**validation_error** for bad date or missing user identifier."
+      - "**ambiguous_matches** when several users match name — caller must pass `user_id`."
+    if_empty: "If `is_absent` is false and lists empty, user not absent on that date (API-visible absences only)."
+    next_steps:
+      - "`absence_get_user_absences` or `absence_list_absences` for full windows and context."
+  pipedrive_find_deal_by_title_or_exact_name:
+    required_inputs:
+      - "`query` (string) — deal title or exact name fragment per tool contract."
+    failure_modes:
+      - "Validation and upstream Pipedrive errors."
+    if_empty: "Try `pipedrive_search_deals` or broaden query; confirm deal stage/org."
+    next_steps:
+      - "`pipedrive_get_deal_summary` then `pipedrive_get_deal` for full payload."
+  breezeway_find_property_by_name_or_external_id:
+    required_inputs:
+      - "Human property name or external id string per tool."
+    failure_modes:
+      - "Upstream Breezeway errors."
+    if_empty: "Try `breezeway_list_properties_page` with filters; verify external id format."
+    next_steps:
+      - "`breezeway_get_property_summary` after resolving property."
+  breezeway_list_tasks:
+    required_inputs:
+      - "`home_id` or `reference_property_id` so the task list is scoped to a property/home."
+    failure_modes:
+      - "Validation errors for missing scope or invalid sort order."
+      - "Upstream Breezeway task-list errors."
+      - "When `include_comments=true`, individual task rows may carry `comments_error` if one thread lookup fails."
+    if_empty: "Check the property/home identifier and date filters; task lists are often empty outside the turnover window."
+    next_steps:
+      - "`breezeway_triage_tasks` when the user wants the urgent queue across multiple properties."
+      - "`breezeway_get_task_comments` for one task thread."
+      - "`breezeway_move_task` or `breezeway_update_task` when the user explicitly wants to change task state/details."
+  breezeway_triage_tasks:
+    required_inputs:
+      - "No property id required; optional scan caps (`max_properties`, `max_tasks_per_property`) and shortlist size (`limit`)."
+    failure_modes:
+      - "Upstream Breezeway property or task-list errors during the portfolio scan."
+      - "Partial scan results may include `scan_summary.properties_with_errors` when some properties fail."
+      - "When `include_comments=true`, only returned shortlist tasks are hydrated with comment previews."
+    if_empty: "If the portfolio scan is empty, verify Breezeway has open tasks or lower the urgency threshold by drilling into a specific property with `breezeway_list_tasks`."
+    next_steps:
+      - "`breezeway_get_task_comments` for one shortlisted task thread."
+      - "`breezeway_move_task` or `breezeway_update_task` after the user confirms what to do with a shortlisted task."
+  breezeway_get_task_comments:
+    required_inputs:
+      - "`task_id` (integer) for one known Breezeway task."
+    failure_modes:
+      - "Validation error for bad task ids."
+      - "Upstream 404 / permission / availability errors from Breezeway."
+    if_empty: "If you only need comments alongside a task page, use `breezeway_list_tasks(include_comments=true)` instead."
+    next_steps:
+      - "Summarize the thread or follow with `breezeway_move_task` / `breezeway_update_task` if the user asks to act on it."
+  breezeway_move_task:
+    required_inputs:
+      - "`task_id` and `action` where action is exactly one of `close`, `approve`, or `reopen`."
+    failure_modes:
+      - "Validation error for bad action names or task ids."
+      - "Upstream rejection when the transition is not allowed for the current task state."
+      - "Permission errors in mcp-proxy when the user lacks write access on server `breezeway`."
+    if_empty: "If the user wanted to edit task fields rather than change state, use `breezeway_update_task`."
+    next_steps:
+      - "Optionally re-read tasks with `breezeway_list_tasks` if you need the refreshed task list."
+  breezeway_update_task:
+    required_inputs:
+      - "`task_id` and a non-empty `updates` object that matches Breezeway's PATCH task schema."
+      - "Common documented update keys: `name`, `type_department`, `type_priority`, `description`, `template_id`, `scheduled_date`, `scheduled_time`, `assignments`, `tags`, `subdepartment_id`, `rate_paid`, `rate_type`, `requested_by`."
+    failure_modes:
+      - "Validation error for empty or non-object update payloads."
+      - "Upstream rejection when PATCH fields are unsupported or invalid."
+      - "Permission errors in mcp-proxy when the user lacks write access on server `breezeway`."
+    if_empty: "If the desired change is only a workflow transition, prefer `breezeway_move_task`."
+    next_steps:
+      - "Re-read the task list or task thread if the user wants to confirm the updated state."
+  quickbooks_list_bank_accounts:
+    required_inputs:
+      - "Usually none; see tool schema for optional filters."
+    failure_modes:
+      - "QuickBooks / token errors."
+    if_empty: "No linked accounts in company file — verify QuickBooks connection and realm."
+    next_steps:
+      - "`quickbooks_get_bank_account_by_name` then transaction tools."
+  quickbooks_get_bank_account_by_name:
+    required_inputs:
+      - "Account name string matching bank account label."
+    failure_modes:
+      - "Not found or ambiguous name."
+    if_empty: "Use `quickbooks_list_bank_accounts` to list exact names."
+    next_steps:
+      - "`quickbooks_get_bank_transactions_in` / `_out` for that account."
+  firestore_gateway_list_collections:
+    required_inputs:
+      - "Optional args per schema; often none for root listing."
+    failure_modes:
+      - "Permission or gateway errors."
+    if_empty: "No collections visible — check project, rules, and user scope."
+    next_steps:
+      - "`firestore_gateway_query_documents` on a collection path."
+  firestore_gateway_query_documents:
+    required_inputs:
+      - "Collection path and query constraints per tool schema (guarded)."
+    failure_modes:
+      - "Validation, limits exceeded, or permission errors."
+    if_empty: "Valid empty query result — relax filters or confirm collection."
+    next_steps:
+      - "`firestore_gateway_get_document` for a known document path."
+  firestore_gateway_get_document:
+    required_inputs:
+      - "Document path / id per gateway contract."
+    failure_modes:
+      - "**not_found** or permission errors."
+    if_empty: "N/A;404-style errors mean wrong path."
+    next_steps:
+      - "`firestore_gateway_query_documents` to discover ids if path unknown."
+  guesty_is_listing_available_on_dates:
+    required_inputs:
+      - "`listing_id` and date range per tool schema."
+    failure_modes:
+      - "Validation and Guesty API errors."
+    if_empty: "Unavailable or no data — confirm listing id and date format."
+    next_steps:
+      - "`guesty_get_listing_calendar` for detailed calendar blocks."
+  guesty_search_guests:
+    required_inputs:
+      - "Filter structure per tool; optional pagination."
+    failure_modes:
+      - "Guesty API errors."
+    if_empty: "Broaden filters or use reservation/guest linkage from `guesty_find_reservation`."
+    next_steps:
+      - "`guesty_get_guest` when you have guest id."

@@ -1,0 +1,4 @@
+[flake8]
+per-file-ignores =
+    tests/*: E501
+    help_catalog.py: E501, E203

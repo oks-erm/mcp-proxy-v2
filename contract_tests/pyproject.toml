@@ -1,0 +1,25 @@
+[project]
+name = "mcp-contract-tests"
+version = "0.1.0"
+description = "Pytest contract suite for MCP tool payloads (structuredContent shapes)"
+requires-python = ">=3.11"
+dependencies = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.24",
+  "mcp[cli]>=1.26,<2.0",
+  "requests>=2.31",
+  "httpx>=0.27",
+  "pyyaml>=6",
+  "google-cloud-firestore>=2.18",
+  "google-cloud-secret-manager>=2.20",
+  "requests-hawk>=1.1",
+  "sqlalchemy>=2",
+  "stripe>=11",
+  "intuit-oauth>=1.2",
+  "pydantic>=2",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["."]
+pythonpath = ["."]

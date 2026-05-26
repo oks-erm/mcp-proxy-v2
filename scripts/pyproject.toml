@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "global-mcp-tools-test"
+version = "0.1.0"
+description = "Smoke test that connects to the MCP proxy and calls every registered tool."
+authors = ["Cursor Bot <noreply@example.com>"]
+license = "MIT"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+httpx = ">=0.27.1"
+mcp = "^1.26"
+anyio = "^4.0"
+
+[build-system]
+requires = ["poetry-core>=1.7"]
+build-backend = "poetry.core.masonry.api"

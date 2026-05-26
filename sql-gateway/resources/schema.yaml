@@ -1,0 +1,2579 @@
+# Database Schema Configuration
+# This file defines the tables, columns, and relationships for the SQL query bot (references is the foreign key reference)
+
+tables:
+  - name: accounting_bankentry
+    summary: "Bank statement transactions for reconciliation with platform payouts"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: bank_entry_id
+        type: text
+        description: Bank transaction identifier from the bank statement
+      - name: amount
+        type: decimal
+        description: Transaction amount from bank statement (positive for credits, negative for debits)
+      - name: date
+        type: timestamp
+        description: Transaction or event date
+      - name: description
+        type: text
+        description: Transaction description as it appears on the bank statement
+      - name: account_name
+        type: text
+        description: Bank account name where the transaction occurred
+      - name: platform_match
+        type: text
+        allowed_values:
+          - airbnb
+          - booking
+          - stripe
+          - sumup
+        description: Matched booking platform if the entry was reconciled (airbnb, booking, stripe, sumup)
+    description: Bank transaction entries from bank statements, used for reconciliation with platform payouts
+  - name: accounting_creditnote
+    summary: "Credit notes for refunds and cancellation adjustments"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: company_id
+        type: text
+        description: Accounting system company identifier (Moloni)
+      - name: price
+        type: decimal
+        description: Net price of the credit note before taxes
+      - name: gross_value
+        type: decimal
+        description: Total credit note value including taxes
+      - name: series_id
+        type: text
+        description: Document series identifier in accounting system
+      - name: date
+        type: timestamp
+        description: Transaction or event date
+      - name: expiration_date
+        type: timestamp
+      - name: document_set_id
+        type: text
+        description: Document set identifier in accounting system
+      - name: customer_id
+        type: text
+        description: Customer identifier in accounting system
+      - name: alternate_address_id
+        type: text
+        description: Alternative billing address if different from default
+      - name: our_reference
+        type: text
+        description: Internal reference number
+      - name: your_reference
+        type: text
+        description: Customer reference number
+      - name: financial_discount
+        type: decimal
+        description: Financial discount amount or percentage
+      - name: salesman_id
+        type: text
+        description: Salesperson identifier
+      - name: salesman_commission
+        type: decimal
+        description: Commission earned by salesperson
+      - name: deduction_id
+        type: text
+        description: Tax deduction identifier if applicable
+      - name: special_discount
+        type: decimal
+        description: Special discount amount or percentage
+      - name: associated_documents_associated_id
+        type: text
+      - name: associated_documents_value
+        type: decimal
+      - name: delivery_method_id
+        type: text
+      - name: delivery_datetime
+        type: timestamp
+      - name: delivery_departure_address
+        type: text
+      - name: delivery_departure_city
+        type: text
+      - name: delivery_departure_zip_code
+        type: text
+      - name: delivery_departure_country
+        type: text
+      - name: delivery_destination_address
+        type: text
+      - name: delivery_destination_city
+        type: text
+      - name: delivery_destination_zip_code
+        type: text
+      - name: delivery_destination_country
+        type: text
+      - name: vehicle_id
+        type: text
+      - name: products
+        type: text
+        description: JSON array of products/services included in the credit note
+      - name: notes
+        type: text
+        description: Additional notes or comments
+      - name: status
+        type: text
+        description: Current status of the record
+      - name: moloni_credit_note_id
+        type: text
+        description: Credit note ID in Moloni accounting system
+      - name: invoice_id
+        type: text
+        references: accounting_invoice.id
+        description: Original invoice being credited
+      - name: transaction_id
+        type: text
+        references: accounting_transaction.id
+        description: Related financial transaction
+    description: Credit notes issued to customers for refunds, cancellations, or adjustments
+  - name: accounting_invoice
+    summary: "Invoices generated for customer reservations and services"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: company_id
+        type: text
+        description: Accounting system company identifier (Moloni)
+      - name: price
+        type: decimal
+        description: Net invoice price before taxes
+      - name: series_id
+        type: text
+        description: Document series identifier in accounting system
+      - name: date
+        type: timestamp
+        description: Transaction or event date
+      - name: expiration_date
+        type: timestamp
+      - name: document_set_id
+        type: text
+        description: Document set identifier in accounting system
+      - name: customer_id
+        type: text
+        description: Customer identifier in accounting system
+      - name: alternate_address_id
+        type: text
+        description: Alternative billing address if different from default
+      - name: our_reference
+        type: text
+        description: Internal reference number
+      - name: your_reference
+        type: text
+        description: Customer reference number
+      - name: financial_discount
+        type: decimal
+        description: Financial discount amount or percentage
+      - name: salesman_id
+        type: text
+        description: Salesperson identifier
+      - name: salesman_commission
+        type: decimal
+        description: Commission earned by salesperson
+      - name: deduction_id
+        type: text
+        description: Tax deduction identifier if applicable
+      - name: special_discount
+        type: decimal
+        description: Special discount amount or percentage
+      - name: associated_documents_associated_id
+        type: text
+      - name: associated_documents_value
+        type: decimal
+      - name: delivery_method_id
+        type: text
+      - name: delivery_datetime
+        type: timestamp
+      - name: delivery_departure_address
+        type: text
+      - name: delivery_departure_city
+        type: text
+        allowed_values:
+          - ""
+      - name: delivery_departure_zip_code
+        type: text
+        allowed_values:
+          - ""
+      - name: delivery_departure_country
+        type: text
+        allowed_values:
+          - ""
+      - name: delivery_destination_address
+        type: text
+      - name: delivery_destination_city
+        type: text
+        allowed_values:
+          - ""
+      - name: delivery_destination_zip_code
+        type: text
+        allowed_values:
+          - ""
+      - name: delivery_destination_country
+        type: text
+        allowed_values:
+          - ""
+      - name: vehicle_id
+        type: text
+      - name: products
+        type: text
+        description: JSON array of products/services included in the invoice
+      - name: notes
+        type: text
+        description: Additional notes or comments
+      - name: status
+        type: text
+        allowed_values:
+          - pending
+          - permanent
+        description: "Invoice status (pending: draft, permanent: finalized)"
+      - name: moloni_invoice_id
+        type: text
+        description: Invoice ID in Moloni accounting system
+      - name: invoiceable_transaction_id
+        type: text
+        references: accounting_invoiceabletransaction.id
+        description: Transaction being invoiced
+      - name: gross_value
+        type: decimal
+        description: Total invoice value including all taxes
+    description: Invoices generated for customer reservations and services rendered
+  - name: accounting_invoiceabletransaction
+    summary: "Transactions eligible for invoicing, linking reservations to accounting"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: reservation_id
+        type: text
+        references: reservations_reservation.id
+        description: Related reservation identifier
+      - name: reservation_status
+        type: text
+        allowed_values:
+          - accepted
+          - canceled
+          - cancelled
+          - confirmed
+          - no_show
+        description: Reservation status at time of invoicing
+      - name: city_tax_value
+        type: decimal
+        description: City/tourist tax amount charged
+      - name: listing_id
+        type: text
+        references: listings_listing.id
+        description: Property listing identifier
+      - name: listing_nickname
+        type: text
+        description: User-friendly listing name
+      - name: al_number
+        type: text
+        description: AL (Alojamento Local) license number - Portuguese short-term rental license
+      - name: moloni_customer_id
+        type: text
+        description: Customer ID in Moloni accounting system
+      - name: moloni_product_id
+        type: text
+        description: Product/service ID in Moloni accounting system
+      - name: moloni_product_name
+        type: text
+        description: Product/service name in Moloni
+      - name: reconciliation_id
+        type: text
+        references: accounting_reconciliation.id
+        description: Reconciliation record linking to bank entry
+      - name: transaction_id
+        type: text
+        references: accounting_transaction.id
+        description: Related financial transaction
+      - name: platform
+        type: text
+        description: Booking platform where reservation originated
+      - name: confirmation_code
+        type: text
+        description: Booking platform confirmation code
+      - name: type
+        type: text
+        allowed_values:
+          - Extras Only
+          - Pagamento da Resolução
+          - Passar Pelo Total
+          - Reserva
+          - Reservation
+          - Reservation without TT
+          - Security Deposit
+        description: Transaction type (Reservation, Extras Only, Security Deposit, etc.)
+    description: Transactions that can be invoiced, linking reservations to accounting documents
+  - name: accounting_payout
+    summary: "Payouts received from booking platforms (Airbnb, Booking, Stripe)"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: date
+        type: timestamp
+        description: Payout date when funds were transferred
+      - name: amount
+        type: decimal
+        description: Payout amount received
+      - name: platform
+        type: text
+        allowed_values:
+          - airbnb
+          - booking
+          - stripe
+          - sumup
+        description: Platform making the payout (airbnb, booking, stripe, sumup)
+      - name: platform_transaction_id
+        type: text
+        description: Transaction ID in the platform system
+      - name: platform_details
+        type: text
+        description: JSON with additional platform-specific details
+      - name: type
+        type: text
+        allowed_values:
+          - adjustment
+          - payout
+        description: "Payout type (payout: regular, adjustment: correction/adjustment)"
+    description: Payouts received from booking platforms (Airbnb, Booking.com, etc.)
+  - name: accounting_reconciliation
+    summary: "Reconciliation records matching bank entries with platform payouts"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: status
+        type: text
+        allowed_values:
+          - matched
+          - unmatched
+        description: "Reconciliation status (matched: reconciled, unmatched: pending)"
+      - name: bank_entry_id
+        type: text
+        references: accounting_bankentry.id
+        description: Bank transaction entry being reconciled
+      - name: payout_id
+        type: text
+        references: accounting_payout.id
+        description: Platform payout being matched to bank entry
+    description: Reconciliation records matching bank entries with platform payouts
+  - name: accounting_transaction
+    summary: "Financial transactions from platforms: payments, refunds, fees, adjustments"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: date
+        type: timestamp
+        description: Transaction date
+      - name: arrival_date
+        type: timestamp
+        description: Guest arrival date for the related reservation
+      - name: type
+        type: text
+        allowed_values:
+          - adjustment
+          - advance_funding
+          - Ajuste
+          - Ajuste de Resolução
+          - charge
+          - Pagamento da Resolução
+          - Passar Pelo Total
+          - Passar por Ajuste Total
+          - payment
+          - payment_refund
+          - payout
+          - Reembolso da Taxa de Cancelamento
+          - refund
+          - refund_deduction
+          - Reserva
+          - Reservation
+          - Reservation without TT
+          - stripe_fee
+          - Taxa de Cancelamento
+        description: Transaction type (payment, refund, adjustment, payout, etc.)
+      - name: confirmation_code
+        type: text
+        description: Booking confirmation code
+      - name: reservation_date
+        type: timestamp
+        description: Date when reservation was made
+      - name: start_date
+        type: timestamp
+        description: Reservation start date
+      - name: end_date
+        type: timestamp
+        description: Reservation end date
+      - name: nights
+        type: integer
+        description: Number of nights in the stay
+      - name: guest
+        type: text
+        description: Guest name
+      - name: listing
+        type: text
+        description: Listing name/identifier
+      - name: details
+        type: text
+        description: Additional transaction details
+      - name: service_fee
+        type: decimal
+        description: Platform service fee charged
+      - name: fast_pay_fee
+        type: decimal
+        description: Fast payout fee if applicable
+      - name: cleaning_fee
+        type: decimal
+        description: Cleaning fee amount
+      - name: pet_fee
+        type: decimal
+        description: Pet fee if applicable
+      - name: gross_earnings
+        type: decimal
+        description: Total earnings before fees
+      - name: transaction_amount
+        type: decimal
+        description: Transaction amount
+      - name: amount
+        type: decimal
+        description: Net amount received/paid
+      - name: occupancy_taxes
+        type: decimal
+        description: Occupancy/tourist tax amount
+      - name: earnings_year
+        type: integer
+        description: Year for tax reporting purposes
+      - name: platform
+        type: text
+        description: Platform where transaction occurred
+      - name: charge_id
+        type: text
+        description: Platform charge identifier
+      - name: payout_id
+        type: text
+        references: accounting_payout.id
+        description: Related payout record
+      - name: issue
+        type: text
+        allowed_values:
+          - bad_classification
+          - fix_creditnote
+          - fix_unknown
+          - no_invoice
+          - no_reservation
+          - none
+          - not_supported
+        description: Data quality issue flag (none, no_invoice, bad_classification, etc.)
+      - name: items
+        type: text
+        description: JSON array of transaction line items
+    description: Financial transactions from booking platforms including payments, refunds, and adjustments
+  - name: airbnb_avg_ratings
+    summary: "Aggregated Airbnb review ratings by category and month"
+    columns:
+      - name: platform
+        type: text
+        allowed_values:
+          - airbnb
+        description: Platform name (airbnb)
+      - name: rating_type
+        type: text
+        allowed_values:
+          - accuracy
+          - checkin
+          - cleanliness
+          - communication
+          - location
+          - overall
+          - value
+        description: Rating category (overall, accuracy, checkin, cleanliness, communication, location, value)
+      - name: review_month
+        type: text
+        allowed_values:
+          - 2024-06
+          - 2024-08
+          - 2024-09
+          - 2024-10
+          - 2024-11
+          - 2024-12
+          - 2025-01
+          - 2025-02
+          - 2025-03
+          - 2025-04
+          - 2025-05
+          - 2025-06
+          - 2025-07
+        description: Month of reviews being aggregated (YYYY-MM format)
+      - name: avg_rating
+        type: decimal
+        description: Average rating for this category and month
+      - name: total_ratings
+        type: integer
+        description: Number of ratings included in average
+      - name: min_rating
+        type: decimal
+        description: Minimum rating received
+      - name: max_rating
+        type: decimal
+        description: Maximum rating received
+      - name: rating_std_dev
+        type: decimal
+        description: Standard deviation of ratings
+      - name: percentage_5_star
+        type: decimal
+        description: Percentage of perfect 5-star ratings
+      - name: count_5_star
+        type: integer
+        description: Count of perfect 5-star ratings
+      - name: latest_review_date
+        type: timestamp
+        description: Date of most recent review
+      - name: earliest_review_date
+        type: timestamp
+        description: Date of earliest review in aggregation
+      - name: rating_scale
+        type: text
+        allowed_values:
+          - 0-10
+          - 0-5
+        description: Rating scale used (0-5 for Airbnb)
+    description: Aggregated average ratings from Airbnb reviews by rating type and month
+  - name: booking_avg_ratings
+    summary: "Aggregated Booking.com review ratings by category and month"
+    columns:
+      - name: platform
+        type: text
+        allowed_values:
+          - booking
+        description: Platform name (booking)
+      - name: rating_type
+        type: text
+        allowed_values:
+          - cleanliness
+          - location
+          - overall
+          - value_for_money
+        description: Rating category (overall, cleanliness, location, value_for_money)
+      - name: review_month
+        type: text
+        allowed_values:
+          - 2024-12
+          - 2025-01
+          - 2025-02
+          - 2025-03
+          - 2025-04
+          - 2025-05
+          - 2025-06
+          - 2025-07
+        description: Month of reviews being aggregated (YYYY-MM format)
+      - name: avg_rating
+        type: decimal
+        description: Average rating for this category and month
+      - name: total_ratings
+        type: integer
+        description: Number of ratings included in average
+      - name: min_rating
+        type: decimal
+        description: Minimum rating received
+      - name: max_rating
+        type: decimal
+        description: Maximum rating received
+      - name: rating_std_dev
+        type: decimal
+        description: Standard deviation of ratings
+      - name: percentage_perfect_star
+        type: decimal
+        description: Percentage of perfect 10/10 ratings
+      - name: count_perfect_star
+        type: integer
+        description: Count of perfect 10/10 ratings
+      - name: latest_review_date
+        type: timestamp
+        description: Date of most recent review
+      - name: earliest_review_date
+        type: timestamp
+        description: Date of earliest review in aggregation
+      - name: rating_scale
+        type: text
+        allowed_values:
+          - 0-10
+          - 0-5
+        description: Rating scale used (0-10 for Booking.com)
+    description: Aggregated average ratings from Booking.com reviews by rating type and month
+  - name: listings_listing
+    summary: "Property listings with pricing, location, amenities, and availability settings"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: pms_listing_id
+        type: text
+        description: Listing ID in Property Management System
+      - name: cleaning_fee
+        type: decimal
+        description: Standard cleaning fee charged per stay
+      - name: validation_errors
+        type: text
+        description: JSON array of validation errors if any
+      - name: validation_status
+        type: text
+        allowed_values:
+          - incomplete
+        description: Data validation status
+      - name: additional_fees
+        type: text
+        description: JSON array of additional fees
+      - name: cancellation_fee
+        type: decimal
+        description: Fee charged for cancellations
+      - name: description
+        type: text
+        description: Property description shown to guests
+      - name: extra_guest_fee
+        type: decimal
+        description: Additional fee per guest beyond base occupancy
+      - name: listing_type
+        type: text
+        allowed_values:
+          - CLUSTER
+          - MULTI
+          - SINGLE
+        description: "Listing type (SINGLE: one unit, MULTI: multiple units, CLUSTER: grouped)"
+      - name: monthly_discount
+        type: decimal
+        description: Discount percentage for monthly stays
+      - name: quantity
+        type: integer
+        description: Number of identical units (for multi-unit listings)
+      - name: status
+        type: text
+        allowed_values:
+          - CHURNED
+          - LIVE
+          - OFFBOARDING
+          - ONBOARDING
+        description: Listing lifecycle status (LIVE, ONBOARDING, OFFBOARDING, CHURNED)
+      - name: title
+        type: text
+        description: Listing title/name shown to guests
+      - name: weekly_discount
+        type: decimal
+        description: Discount percentage for weekly stays
+      - name: accommodates
+        type: integer
+        description: Maximum number of guests
+      - name: address
+        type: text
+        description: Property street address
+      - name: amenities
+        type: text
+        description: JSON array of amenities (WiFi, AC, Kitchen, etc.)
+      - name: base_price
+        type: decimal
+        description: Base nightly rate
+      - name: bathrooms
+        type: decimal
+        description: Number of bathrooms
+      - name: bedrooms
+        type: integer
+        description: Number of bedrooms
+      - name: beds
+        type: integer
+        description: Number of beds
+      - name: city
+        type: text
+        description: City where property is located
+      - name: country
+        type: text
+        allowed_values:
+          - Portugal
+        description: Country (Portugal)
+      - name: currency
+        type: text
+        allowed_values:
+          - EUR
+        description: Pricing currency (EUR)
+      - name: default_checkin_time
+        type: timestamp
+        description: Standard check-in time
+      - name: default_checkout_time
+        type: timestamp
+        description: Standard check-out time
+      - name: latitude
+        type: decimal
+        description: Property latitude coordinate
+      - name: longitude
+        type: decimal
+        description: Property longitude coordinate
+      - name: markups
+        type: text
+        description: JSON array of pricing markups
+      - name: max_nights
+        type: integer
+        description: Maximum stay length in nights
+      - name: min_nights
+        type: integer
+        description: Minimum stay length in nights
+      - name: nickname
+        type: text
+        description: Internal nickname for easy reference this is usually the name of the property
+      - name: picture_url
+        type: text
+        description: Main property photo URL
+      - name: property_type
+        type: text
+        allowed_values:
+          - Apartment
+          - Guesthouse
+          - House
+          - Serviced apartment
+          - Studio
+          - Villa
+        description: Property type (Apartment, House, Villa, Studio, etc.)
+      - name: room_type
+        type: text
+        description: Room type (Entire place, Private room, Shared room)
+      - name: tags
+        type: text
+        description: JSON array of tags for categorization
+      - name: taxes
+        type: text
+        description: JSON array of applicable taxes
+      - name: timezone
+        type: text
+        description: Property timezone
+      - name: is_active
+        type: boolean
+        description: Whether listing is currently active
+      - name: is_listed
+        type: boolean
+        description: Whether listing is published on platforms
+      - name: location_score
+        type: decimal
+        description: Location quality score (0-100)
+      - name: quality_score
+        type: decimal
+        description: Overall property quality score (0-100)
+      - name: typology
+        type: text
+        allowed_values:
+          - Hostel
+          - Multi
+          - Room
+          - T0
+          - T1
+          - T2
+          - T3
+          - T4
+          - T5
+          - T6
+        description: Portuguese property classification (T0-T6, Hostel, Room, Multi)
+    description: Property listings published on booking platforms (main rental units)
+  - name: listings_listingchannel
+    summary: "Distribution channels where listings are published (Airbnb, Booking)"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: channel
+        type: text
+        description: Distribution channel name (airbnb, booking, etc.)
+      - name: channel_listing_id
+        type: text
+        description: Listing identifier in the channel system
+      - name: status
+        type: text
+        description: Channel listing status
+      - name: url
+        type: text
+        description: Direct URL to the listing on the channel
+      - name: listing_id
+        type: text
+        references: listings_listing.id
+        description: Internal listing reference
+    description: Distribution channels where listings are published (Airbnb, Booking.com, etc.)
+  - name: listings_listingunit
+    summary: "Association between listings and physical units for multi-unit properties"
+    columns:
+      - name: id
+        type: integer
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: allocation_pct
+        type: decimal
+        description: Percentage of unit allocated to this listing (for shared units)
+      - name: listing_id
+        type: text
+        references: listings_listing.id
+        description: Listing identifier
+      - name: unit_id
+        type: text
+        references: listings_unit.id
+        description: Physical unit identifier
+    description: Association between listings and physical units (for multi-unit properties)
+  - name: listings_regiongroup
+    summary: "Geographic regions for organizing units and staff assignments"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: external_region_group_id
+        type: text
+        description: Region group ID in external system
+      - name: external_region_group_name
+        type: text
+        description: Region group name
+      - name: unit_id
+        type: text
+        references: listings_unit.id
+        description: Unit assigned to this region
+    description: Geographic regions/groups for organizing units and operations
+  - name: listings_serviceconnection
+    summary: "External service integrations connected to listings or units"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: external_service_id
+        type: text
+        description: Service identifier in external system
+      - name: listing_id
+        type: text
+        references: listings_listing.id
+        description: Connected listing
+      - name: unit_id
+        type: text
+        references: listings_unit.id
+        description: Connected unit
+    description: External service integrations connected to listings or units
+  - name: listings_unit
+    summary: "Physical rental units with address, owner, typology, and quality scores"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: pms_unit_id
+        type: text
+        description: Unit ID in Property Management System
+      - name: nickname
+        type: text
+        description: Internal nickname for easy reference
+      - name: typology
+        type: text
+        allowed_values:
+          - Hostel
+          - Room
+          - T0
+          - T1
+          - T2
+          - T3
+          - T4
+          - T5
+          - T6
+        description: "Portuguese property classification (T0-T6: bedrooms, Hostel, Room)"
+      - name: owner
+        type: text
+        description: Property owner name
+      - name: address
+        type: text
+        description: Unit street address
+      - name: amenities
+        type: text
+        description: JSON array of amenities
+      - name: quality_score
+        type: decimal
+        description: Unit quality score (0-100)
+      - name: location_score
+        type: decimal
+        description: Location quality score (0-100)
+      - name: review_minimo
+        type: decimal
+        description: Minimum acceptable review rating threshold
+      - name: al_license
+        type: text
+        description: AL (Alojamento Local) license number
+      - name: taxa_turistica
+        type: boolean
+        description: "Whether tourist tax applies (Portuguese: taxa turística)"
+      - name: accommodates
+        type: integer
+        description: Maximum number of guests
+      - name: address_string
+        type: text
+        description: Full formatted address
+      - name: bathrooms
+        type: decimal
+        description: Number of bathrooms
+      - name: bedrooms
+        type: integer
+        description: Number of bedrooms
+      - name: beds
+        type: integer
+        description: Number of beds
+      - name: city
+        type: text
+        description: City location
+      - name: country
+        type: text
+        allowed_values:
+          - Portugal
+        description: Country (Portugal)
+      - name: latitude
+        type: decimal
+        description: Latitude coordinate
+      - name: longitude
+        type: decimal
+        description: Longitude coordinate
+      - name: picture_url
+        type: text
+        description: Main unit photo URL
+      - name: property_type
+        type: text
+        allowed_values:
+          - Apartment
+          - Guesthouse
+          - House
+          - Serviced apartment
+          - Studio
+          - Villa
+        description: Property type classification
+      - name: business_model
+        type: text
+        allowed_values:
+          - Comissão
+          - Renda Fixa
+        description: "Revenue model (Comissão: commission, Renda Fixa: fixed rent)"
+    description: Physical rental units (apartments, rooms) that can be assigned to one or more listings
+  - name: operations_operationtask
+    summary: "Operational tasks: housekeeping, maintenance, inspections for properties"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: operation_external_id
+        type: integer
+        description: Task ID in external operations system
+      - name: name
+        type: text
+        description: Task name/description
+      - name: operation_created_at
+        type: timestamp
+        description: When task was created in operations system
+      - name: operation_updated_at
+        type: timestamp
+        description: When task was last updated in operations system
+      - name: operation_scheduled_date
+        type: timestamp
+        description: Scheduled date for task completion
+      - name: operation_finished_at
+        type: timestamp
+        description: When task was completed
+      - name: operation_started_at
+        type: timestamp
+        description: When work on task began
+      - name: rate_paid
+        type: text
+        description: Payment rate for this task
+      - name: rate_type
+        type: text
+        allowed_values:
+          - hourly
+          - piece
+        description: "Rate type (hourly: per hour, piece: per task)"
+      - name: operation_home_id
+        type: integer
+        description: Home/unit identifier in operations system
+      - name: tags
+        type: text
+        description: JSON array of tags
+      - name: department
+        type: text
+        allowed_values:
+          - housekeeping
+          - inspection
+          - maintenance
+        description: Department responsible (housekeeping, maintenance, inspection)
+      - name: priority
+        type: text
+        allowed_values:
+          - high
+          - low
+          - normal
+          - urgent
+          - watch
+        description: Task priority (urgent, high, normal, low, watch)
+      - name: validation_status
+        type: text
+        allowed_values:
+          - ok
+        description: Data validation status
+      - name: validation_errors
+        type: text
+        description: Validation errors if any
+      - name: listing_id
+        type: text
+        references: listings_listing.id
+        description: Associated listing
+      - name: reservation_id
+        type: text
+        references: reservations_reservation.id
+        description: Associated reservation (if task is for a turnover)
+      - name: unit_id
+        type: text
+        references: listings_unit.id
+        description: Associated physical unit
+    description: Operational tasks (housekeeping, maintenance, inspections) scheduled for properties
+  - name: operations_operationtask_assignees
+    summary: "Assignment of operation tasks to staff members"
+    columns:
+      - name: id
+        type: integer
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: operationtask_id
+        type: text
+        references: operations_operationtask.id
+      - name: operationuser_id
+        type: text
+        references: operations_operationuser.id
+    description: Assignment of operation tasks to staff members
+  - name: operations_operationuser
+    summary: "Staff members who perform housekeeping, maintenance, and inspections"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: operation_external_id
+        type: text
+        description: User ID in external operations system
+      - name: first_name
+        type: text
+        description: Staff member first name
+      - name: last_name
+        type: text
+        description: Staff member last name
+      - name: email
+        type: text
+        description: Staff member email
+      - name: is_active
+        type: boolean
+        description: Whether staff member is currently active
+      - name: departments
+        type: text
+        description: JSON array of departments this user works in
+      - name: role
+        type: text
+        description: User role/position
+      - name: validation_status
+        type: text
+        allowed_values:
+          - incomplete
+          - ok
+        description: Data validation status
+      - name: validation_errors
+        type: text
+        description: Validation errors if any
+      - name: is_reviews
+        type: boolean
+        description: Whether this user is evaluated via review metrics
+    description: Staff members who perform operational tasks
+  - name: operations_operationuser_region_groups
+    summary: "Assignment of staff to specific geographic regions"
+    columns:
+      - name: id
+        type: integer
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: operationuser_id
+        type: text
+        references: operations_operationuser.id
+      - name: regiongroup_id
+        type: text
+        references: listings_regiongroup.id
+    description: Assignment of staff to specific geographic regions
+  - name: owners_owner
+    summary: "Property owners with contact information and contracts"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: pms_owner_id
+        type: integer
+        description: Owner ID in Property Management System
+      - name: email
+        type: text
+        description: Owner email address
+      - name: first_name
+        type: text
+        description: Owner first name
+      - name: last_name
+        type: text
+        description: Owner last name
+      - name: phone
+        type: text
+        description: Owner phone number
+      - name: validation_status
+        type: text
+        allowed_values:
+          - ok
+        description: Data validation status
+      - name: validation_errors
+        type: text
+        description: Validation errors if any
+    description: Property owners who have contracts with the business
+  - name: owners_owner_properties
+    summary: "Association between owners and their properties"
+    columns:
+      - name: id
+        type: integer
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: owner_id
+        type: text
+        references: owners_owner.id
+      - name: property_id
+        type: text
+        references: properties_property.id
+    description: Association between owners and their properties
+  - name: owners_ownerpayoutvalidation
+    summary: "Validation of payouts calculated for property owners"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: amount
+        type: decimal
+        description: Payout amount to owner
+      - name: listing_id
+        type: text
+        references: listings_listing.id
+        description: Associated listing
+      - name: owner_id
+        type: text
+        references: owners_owner.id
+        description: Owner receiving payout
+      - name: property_id
+        type: text
+        references: properties_property.id
+        description: Associated property
+      - name: reservation_id
+        type: text
+        references: reservations_reservation.id
+        description: Associated reservation
+      - name: reservation_validation_id
+        type: text
+        references: reservations_reservationvalidation.id
+        description: Validation record reference
+      - name: check_in
+        type: timestamp
+        description: Reservation check-in date
+      - name: check_out
+        type: timestamp
+        description: Reservation check-out date
+      - name: commission
+        type: text
+        description: Commission percentage or amount
+      - name: guest_name
+        type: text
+        description: Guest name for reference
+      - name: overlap_days
+        type: integer
+        description: Days overlapping with payout period
+      - name: platform_commission
+        type: decimal
+        description: Commission charged by platform
+      - name: reservation_amount
+        type: decimal
+        description: Total reservation amount
+      - name: status
+        type: text
+        description: Validation status
+      - name: total_days
+        type: integer
+        description: Total days in reservation
+    description: Validation of payouts owed to property owners
+  - name: owners_ownerspayout
+    summary: "Monthly payouts made to property owners for rental income"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: amount
+        type: decimal
+        description: Payout amount to owner
+      - name: month
+        type: timestamp
+        description: Payout month (first day of month)
+      - name: contract_id
+        type: text
+        references: properties_contract.id
+        description: Contract governing this payout
+      - name: owner_id
+        type: text
+        references: owners_owner.id
+        description: Owner receiving payout
+      - name: property_id
+        type: text
+        references: properties_property.id
+        description: Property the payout is for
+    description: Actual payouts made to property owners for their share of rental income
+  - name: properties_contract
+    summary: "Rental management contracts with property owners"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: property_id
+        type: text
+        references: properties_property.id
+        description: Property under contract
+      - name: contract_template_id
+        type: text
+        references: properties_contracttemplate.id
+        description: Template used for this contract
+      - name: no_vat
+        type: boolean
+        description: Whether VAT is excluded
+    description: Rental management contracts with property owners
+  - name: properties_contractfee
+    summary: "Fee structures defined in contracts (cleaning fees, commissions)"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: fee_type
+        type: text
+        allowed_values:
+          - cleaning_fee
+          - cleaning_fee_commission
+        description: Fee type (cleaning_fee, cleaning_fee_commission)
+      - name: contract_id
+        type: text
+        references: properties_contract.id
+        description: Associated contract
+    description: Fee structures defined in contracts (cleaning fees, commissions)
+  - name: properties_contractrule
+    summary: "Dynamic contract rules that adjust terms based on conditions"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: rule_type
+        type: text
+        allowed_values:
+          - stay_duration
+        description: "Rule type (stay_duration: varies by length of stay)"
+      - name: condition_field
+        type: text
+        allowed_values:
+          - nights
+        description: Field to evaluate (nights, etc.)
+      - name: operator
+        type: text
+        allowed_values:
+          - gt
+        description: "Comparison operator (gt: greater than)"
+      - name: condition_value
+        type: text
+        description: Value to compare against
+      - name: new_percentage
+        type: decimal
+        description: Commission percentage when condition is met
+      - name: contract_id
+        type: text
+        references: properties_contract.id
+        description: Associated contract
+    description: Dynamic rules in contracts that adjust terms based on conditions (e.g., stay duration)
+  - name: properties_contracttemplate
+    summary: "Reusable contract templates with standard commission terms"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: name
+        type: text
+        description: Template name
+      - name: contract_type
+        type: text
+        allowed_values:
+          - agenciamento
+          - percentage
+        description: "Contract type (percentage: revenue share, agenciamento: management)"
+      - name: base_percentage
+        type: decimal
+        description: Base commission percentage
+      - name: revenue_type
+        type: text
+        allowed_values:
+          - gross
+          - net
+        description: "Revenue calculation basis (gross: before fees, net: after fees)"
+    description: Reusable contract templates with standard terms
+  - name: properties_feestructure
+    summary: "Standard fee structures by booking channel"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: name
+        type: text
+        description: Fee structure name
+      - name: fee_type
+        type: text
+        allowed_values:
+          - cleaning_fee_commission
+        description: Fee type
+      - name: channel
+        type: text
+        allowed_values:
+          - abritel
+          - airbnb
+          - booking
+          - boutique_homes
+          - direct
+          - expedia
+          - flatio
+          - hvmb
+          - inlife
+          - nice2stay
+          - rentals_united
+          - spotahome
+          - uniplaces
+          - vrbo
+          - website
+        description: Booking channel this fee applies to
+      - name: percentage
+        type: decimal
+        description: Fee percentage
+    description: Standard fee structures by booking channel
+  - name: properties_property
+    summary: "Physical properties with address, permits, and utility contracts"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: name
+        type: text
+        description: Property name
+      - name: tipology
+        type: text
+        allowed_values:
+          - T0
+          - T1
+          - T2
+          - T3
+          - T4
+          - T5
+          - T6
+          - V1
+          - V2
+          - V3
+          - V4
+          - V5
+        description: "Property typology (T0-T6: bedrooms, V1-V5: villas)"
+      - name: permit
+        type: text
+        description: Short-term rental permit/license number
+      - name: country
+        type: text
+        allowed_values:
+          - Portugal
+        description: Country (Portugal)
+      - name: country_code
+        type: text
+        allowed_values:
+          - PT
+        description: Country code (PT)
+      - name: state
+        type: text
+        allowed_values:
+          - Aveiro District
+          - Braga
+          - Coimbra District
+          - Évora District
+          - Faro
+          - Faro District
+          - Leiria District
+          - Lisbon
+          - Porto
+          - Porto District
+          - Santarém
+          - Viana do Castelo
+          - Viana do Castelo District
+          - Vila Real District
+          - Viseu District
+        description: State/district in Portugal
+      - name: city
+        type: text
+        description: City location
+      - name: street
+        type: text
+        description: Street address
+      - name: address
+        type: text
+        description: Full address
+      - name: zip_code
+        type: text
+        description: Postal code
+      - name: unit
+        type: text
+        description: Unit number if applicable
+      - name: validation_status
+        type: text
+        allowed_values:
+          - incomplete
+          - ok
+        description: Data validation status
+      - name: validation_errors
+        type: text
+        description: Validation errors if any
+      - name: listing_id
+        type: text
+        references: listings_listing.id
+        description: Associated listing
+      - name: electricity_contract
+        type: text
+        description: Electricity contract number
+      - name: water_contract
+        type: text
+        allowed_values:
+          - "10005970"
+          - "10005971"
+          - "10005972"
+          - "10005973"
+          - "10005974"
+          - "10005975"
+          - "10005976"
+          - "10018612"
+          - "10979"
+          - "151393"
+          - "18581"
+          - "193746"
+          - "5787"
+          - "65924"
+        description: Water contract number
+    description: Physical properties being managed (legal/administrative view)
+  - name: reservations_fee
+    summary: "Individual fees on reservations: accommodation, cleaning, taxes, always include these when asked for the gross revenue "
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: name
+        type: text
+        description: Fee name/description
+      - name: type
+        type: text
+        allowed_values:
+          - accommodation
+          - cleaning
+          - commission
+          - discount
+          - tax
+        description: Fee type (accommodation, cleaning, commission, discount, tax)
+      - name: amount_net
+        type: decimal
+        description: Net fee amount before taxes
+      - name: amount_tax
+        type: decimal
+        description: Tax portion of the fee
+      - name: amount_gross
+        type: decimal
+        description: Total fee amount including tax
+      - name: start_date
+        type: timestamp
+        description: Fee start date (for daily fees)
+      - name: end_date
+        type: timestamp
+        description: Fee end date (for daily fees)
+      - name: reservation_id
+        type: text
+        references: reservations_reservation.id
+        description: Associated reservation
+    description: Individual fees associated with reservations (accommodation, cleaning, commission, taxes)
+  - name: reservations_reservation
+    summary: "Guest bookings with dates, guests, pricing, revenue, and status"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: pms_reservation_id
+        type: text
+        description: Reservation ID in Property Management System
+      - name: channel_listing_id
+        type: integer
+        description: Listing ID in the booking channel
+      - name: channel_reservation_id
+        type: text
+        description: Reservation ID in the booking channel
+      - name: is_manual
+        type: boolean
+        description: Whether reservation was created manually (not from channel)
+      - name: status
+        type: text
+        allowed_values:
+          - canceled
+          - completed
+          - confirmed
+          - declined
+          - expired
+          - pending
+        description: Reservation status (confirmed, canceled, completed, pending, etc. always use confirmed or completed when asked for confirmed for paid reservations)
+      - name: source
+        type: text
+        description: Booking source/channel
+      - name: confirmed_at
+        type: timestamp
+        description: Timestamp when reservation was confirmed
+      - name: guest_id
+        type: text
+        description: Guest identifier
+      - name: guest_name
+        type: text
+        description: Guest full name
+      - name: guest_email
+        type: text
+        description: Guest email address
+      - name: guest_photo
+        type: text
+        description: Guest profile photo URL
+      - name: guest_phone
+        type: text
+        description: Guest phone number
+      - name: guests
+        type: integer
+        description: Total number of guests
+      - name: adults
+        type: integer
+        description: Number of adult guests
+      - name: children
+        type: integer
+        description: Number of children
+      - name: infants
+        type: integer
+        description: Number of infants (typically under 2 years)
+      - name: pets
+        type: integer
+        description: Number of pets
+      - name: planned_arrival
+        type: timestamp
+        description: Expected arrival date/time
+      - name: planned_departure
+        type: timestamp
+        description: Expected departure date/time
+      - name: subtotal
+        type: decimal
+        description: Subtotal before fees and taxes
+      - name: tax_amount
+        type: decimal
+        description: Tax amount charged
+      - name: host_collected_tax
+        type: decimal
+        description: Taxes collected by host
+      - name: collected_tax
+        type: decimal
+        description: Total taxes collected
+      - name: channel_commission
+        type: decimal
+        description: Commission charged by booking channel
+      - name: cleaning_fee
+        type: decimal
+        description: Cleaning fee charged to guest
+      - name: security_deposit_fee
+        type: decimal
+        description: Security deposit amount
+      - name: currency
+        type: text
+        allowed_values:
+          - EUR
+        description: Currency code (EUR)
+      - name: door_code
+        type: text
+        description: Access code for entry
+      - name: door_code_instruction
+        type: text
+        description: Instructions for using the door code
+      - name: price_per_night
+        type: decimal
+        description: Average price per night
+      - name: base_price
+        type: decimal
+        description: Base accommodation price
+      - name: cancel_policy
+        type: text
+        description: Cancellation policy code
+      - name: cancellation_fee
+        type: decimal
+        description: Fee charged if canceled
+      - name: cancelled_at
+        type: timestamp
+        description: Timestamp when reservation was canceled
+      - name: owner_commission
+        type: decimal
+        description: Commission owed to property owner
+      - name: service_charge
+        type: decimal
+        description: Service charge amount
+      - name: revenue
+        type: decimal
+        description: Total revenue from reservation
+      - name: transaction_fee
+        type: decimal
+        description: Payment transaction fee
+      - name: sum_refunds
+        type: decimal
+        description: Total refunds issued
+      - name: owner_revenue
+        type: decimal
+        description: Revenue share going to owner
+      - name: net_revenue
+        type: decimal
+        description: Net revenue after all fees and commissions
+      - name: payout_price
+        type: decimal
+        description: Payout amount to host
+      - name: city_tax
+        type: decimal
+        description: City/tourist tax amount
+      - name: paid_part
+        type: text
+        description: "Payment status (full: fully paid, part: partially paid, none: unpaid)"
+      - name: paid_sum
+        type: decimal
+        description: Amount paid by guest
+      - name: confirmation_code
+        type: text
+        description: Booking confirmation code
+      - name: nights
+        type: integer
+        description: Number of nights in the stay
+      - name: beds_to_be_prepared
+        type: integer
+        description: Number of beds needing preparation
+      - name: lock_pin
+        type: text
+        description: Smart lock PIN code
+      - name: pms_created_at
+        type: timestamp
+        description: Creation timestamp in PMS
+      - name: pms_updated_at
+        type: timestamp
+        description: Last update timestamp in PMS
+      - name: listing_id
+        type: text
+        references: listings_listing.id
+        description: Associated listing
+      - name: target_id
+        type: integer
+        description: Target identifier
+      - name: validation_errors
+        type: text
+        description: JSON array of validation errors
+      - name: validation_status
+        type: text
+        allowed_values:
+          - incomplete
+          - ok
+        description: Data validation status
+      - name: booking_window
+        type: integer
+        description: Days between booking and check-in
+      - name: check_in
+        type: timestamp
+        description: Actual check-in date/time
+      - name: check_out
+        type: timestamp
+        description: Actual check-out date/time
+      - name: extra_guest_fee
+        type: decimal
+        description: Additional guest fee charged
+      - name: pet_fee
+        type: decimal
+        description: Pet fee charged
+    description: Guest bookings/reservations for properties
+  - name: reservations_reservationdailyrevenue
+    summary: "Daily revenue breakdown for each night of a reservation"
+    columns:
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: reservation_id
+        type: text
+        references: reservations_reservation.id
+        description: Associated reservation
+      - name: reservation_single_id
+        type: text
+        references: reservations_reservationsingle.id
+        description: Single unit allocation within reservation
+      - name: listing_id
+        type: text
+        references: listings_listing.id
+        description: Associated listing
+      - name: date
+        type: timestamp
+        description: Revenue date (specific night)
+      - name: month
+        type: timestamp
+        description: Month for aggregation
+      - name: base_price
+        type: decimal
+        description: Base nightly rate for this date
+      - name: cleaning_fee_daily
+        type: decimal
+        description: Cleaning fee allocated to this date
+      - name: channel_commission_daily
+        type: decimal
+        description: Channel commission allocated to this date
+      - name: tax_daily
+        type: decimal
+        description: Tax allocated to this date
+      - name: revenue
+        type: decimal
+        description: Total revenue for this date
+      - name: is_multi_unit
+        type: boolean
+        description: Whether reservation spans multiple units
+      - name: split_percentage
+        type: decimal
+        description: Revenue split percentage for multi-unit
+      - name: currency
+        type: text
+        allowed_values:
+          - EUR
+        description: Currency code (EUR)
+      - name: unit_id
+        type: text
+        references: listings_unit.id
+        description: Associated physical unit
+    description: Daily revenue breakdown for each reservation across its stay period
+  - name: reservations_reservationmonthlyrevenue
+    summary: "Monthly revenue aggregation for reservations"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: month
+        type: timestamp
+        description: Revenue month (first day of month)
+      - name: nights_in_month
+        type: integer
+        description: Number of nights falling in this month
+      - name: revenue
+        type: decimal
+        description: Total revenue for this month
+      - name: currency
+        type: text
+        allowed_values:
+          - EUR
+        description: Currency code (EUR)
+      - name: listing_id
+        type: text
+        references: listings_listing.id
+        description: Associated listing
+      - name: reservation_id
+        type: text
+        references: reservations_reservation.id
+        description: Associated reservation
+      - name: reservation_single_id
+        type: text
+        references: reservations_reservationsingle.id
+        description: Single unit allocation
+      - name: unit_id
+        type: text
+        references: listings_unit.id
+        description: Associated physical unit
+      - name: base_price
+        type: decimal
+        description: Total base price for the month
+      - name: cleaning_fee
+        type: decimal
+        description: Cleaning fee allocated to this month
+      - name: price_per_night
+        type: decimal
+        description: Average price per night
+      - name: subtotal
+        type: decimal
+        description: Subtotal for this month
+      - name: check_in
+        type: timestamp
+        description: Check-in date (for reference)
+      - name: check_out
+        type: timestamp
+        description: Check-out date (for reference)
+    description: Monthly revenue aggregation for reservations
+  - name: reservations_reservationsingle
+    summary: "Individual unit assignments for multi-unit reservations"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: check_in
+        type: timestamp
+        description: Check-in date for this unit allocation
+      - name: check_out
+        type: timestamp
+        description: Check-out date for this unit allocation
+      - name: nights
+        type: integer
+        description: Number of nights
+      - name: subtotal
+        type: decimal
+        description: Subtotal for this unit allocation
+      - name: base_price
+        type: decimal
+        description: Base accommodation price
+      - name: price_per_night
+        type: decimal
+        description: Average price per night
+      - name: cleaning_fee
+        type: decimal
+        description: Cleaning fee for this unit
+      - name: revenue
+        type: decimal
+        description: Total revenue for this unit allocation
+      - name: currency
+        type: text
+        allowed_values:
+          - EUR
+        description: Currency code (EUR)
+      - name: guests
+        type: integer
+        description: Number of guests assigned to this unit
+      - name: adults
+        type: integer
+        description: Number of adults
+      - name: children
+        type: integer
+        description: Number of children
+      - name: split_method
+        type: text
+        allowed_values:
+          - by_allocation_pct
+          - cluster_child
+          - single_unit
+        description: How revenue is split (single_unit, by_allocation_pct, cluster_child)
+      - name: split_percentage
+        type: decimal
+        description: Revenue split percentage
+      - name: listing_id
+        type: text
+        references: listings_listing.id
+        description: Associated listing
+      - name: reservation_id
+        type: text
+        references: reservations_reservation.id
+        description: Parent reservation
+      - name: unit_id
+        type: text
+        references: listings_unit.id
+        description: Assigned physical unit
+    description: Individual unit assignments for multi-unit reservations
+  - name: reservations_reservationvalidation
+    summary: "Validation records for reservation data quality"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: confirmation_code
+        type: text
+        description: Booking confirmation code
+      - name: guest_name
+        type: text
+        description: Guest name
+      - name: reservation_source
+        type: text
+        description: Booking source/channel
+      - name: check_in
+        type: timestamp
+        description: Check-in date
+      - name: check_out
+        type: timestamp
+        description: Check-out date
+      - name: status
+        type: text
+        allowed_values:
+          - error
+          - ok
+          - warning
+        description: Validation status (ok, warning, error)
+      - name: error_data
+        type: text
+        description: JSON with validation error details
+      - name: financial_data
+        type: text
+        description: JSON with financial validation data
+      - name: unit_id
+        type: text
+        references: listings_unit.id
+        description: Associated unit
+    description: Validation records for reservation data quality and completeness
+  - name: reservations_transaction
+    summary: "Financial transactions linked to specific reservations"
+    columns:
+      - name: transaction_id
+        type: integer
+        primary_key: true
+        references: accounting_transaction.id
+        description: Transaction identifier
+      - name: channel_transaction_id
+        type: text
+        description: Transaction ID in channel system
+      - name: type
+        type: text
+        description: Transaction type
+      - name: type_description
+        type: text
+        description: Human-readable transaction type description
+      - name: charge_type
+        type: text
+        description: Charge type classification
+      - name: charge_status
+        type: text
+        description: Charge status
+      - name: original_transaction_id
+        type: integer
+        description: Original transaction if this is a refund/adjustment
+      - name: payout_type
+        type: text
+        description: Payout type
+      - name: details
+        type: text
+        description: Additional transaction details
+      - name: code
+        type: text
+        description: Transaction code
+      - name: is_completed
+        type: integer
+        description: Whether transaction is completed (boolean as integer)
+      - name: notes
+        type: text
+        description: Transaction notes
+      - name: source
+        type: text
+        description: Transaction source
+      - name: added_by
+        type: text
+        description: User who added the transaction
+      - name: autopayment_rule_id
+        type: integer
+        description: Autopayment rule that triggered this
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: channel_reservation_id
+        type: text
+        description: Channel reservation identifier
+      - name: listing_nickname
+        type: text
+        description: Listing nickname
+      - name: listing_name
+        type: text
+        description: Listing name
+      - name: channel_listing_id
+        type: text
+        description: Channel listing identifier
+      - name: guest_name
+        type: text
+        description: Guest name
+      - name: integration_nickname
+        type: text
+        description: Integration nickname
+      - name: integration_name
+        type: text
+        description: Integration name
+      - name: charge_date
+        type: timestamp
+        description: Date when charge was made
+      - name: reservation_id
+        type: integer
+        references: reservations_reservation.id
+        description: Associated reservation (derived FK)
+      - name: guest_id
+        type: integer
+        description: Guest identifier
+      - name: validation_status
+        type: text
+        description: Validation status
+      - name: validation_errors
+        type: text
+        description: Validation errors if any
+    description: Financial transactions linked to specific reservations
+  - name: reviews_airbnbreview
+    summary: "Detailed Airbnb reviews with category ratings (cleanliness, location, etc.)"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: overall_rating
+        type: decimal
+        description: Overall rating (0-5 scale)
+      - name: accuracy_rating
+        type: decimal
+        description: Accuracy rating (listing description accuracy)
+      - name: accuracy_comments
+        type: text
+        description: Guest comments on accuracy
+      - name: checkin_rating
+        type: decimal
+        description: Check-in experience rating
+      - name: checkin_comments
+        type: text
+        description: Guest comments on check-in
+      - name: cleanliness_rating
+        type: decimal
+        description: Cleanliness rating
+      - name: cleanliness_comments
+        type: text
+        description: Guest comments on cleanliness
+      - name: communication_rating
+        type: decimal
+        description: Host communication rating
+      - name: communication_comments
+        type: text
+        description: Guest comments on communication
+      - name: location_rating
+        type: decimal
+        description: Location rating
+      - name: location_comments
+        type: text
+        description: Guest comments on location
+      - name: value_rating
+        type: decimal
+        description: Value for money rating
+      - name: value_comments
+        type: text
+        description: Guest comments on value
+      - name: pms_created_at
+        type: timestamp
+        description: When review was created in PMS
+      - name: pms_expires_at
+        type: timestamp
+        description: When review expires in PMS
+      - name: comments
+        type: text
+        description: Full review text from guest
+      - name: feedback
+        type: text
+        description: Additional feedback
+      - name: review_id
+        type: text
+        references: reviews_review.id
+        description: Base review record
+      - name: validation_errors
+        type: text
+        description: Validation errors if any
+      - name: validation_status
+        type: text
+        allowed_values:
+          - incomplete
+          - ok
+        description: Data validation status
+    description: Detailed guest reviews from Airbnb with category ratings
+  - name: reviews_bookingreview
+    summary: "Detailed Booking.com reviews with category ratings"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: overall_rating
+        type: decimal
+        description: Overall rating (0-10 scale)
+      - name: staff_rating
+        type: decimal
+        description: Staff service rating
+      - name: staff_comments
+        type: text
+        description: Guest comments on staff
+      - name: facilities_rating
+        type: decimal
+        description: Facilities/amenities rating
+      - name: facilities_comments
+        type: text
+        description: Guest comments on facilities
+      - name: comfort_rating
+        type: decimal
+        description: Comfort rating
+      - name: comfort_comments
+        type: text
+        description: Guest comments on comfort
+      - name: cleanliness_rating
+        type: decimal
+        description: Cleanliness rating
+      - name: cleanliness_comments
+        type: text
+        description: Guest comments on cleanliness
+      - name: value_for_money_rating
+        type: decimal
+        description: Value for money rating
+      - name: value_for_money_comments
+        type: text
+        description: Guest comments on value
+      - name: location_rating
+        type: decimal
+        description: Location rating
+      - name: location_comments
+        type: text
+        description: Guest comments on location
+      - name: improve_comments
+        type: text
+        description: What could be improved
+      - name: love_comments
+        type: text
+        description: What guests loved most
+      - name: feedback
+        type: text
+        description: Additional feedback
+      - name: pms_created_at
+        type: timestamp
+        description: When review was created in PMS
+      - name: pms_expires_at
+        type: timestamp
+        description: When review expires in PMS
+      - name: review_id
+        type: text
+        references: reviews_review.id
+        description: Base review record
+      - name: validation_errors
+        type: text
+        description: Validation errors if any
+      - name: validation_status
+        type: text
+        allowed_values:
+          - incomplete
+          - ok
+        description: Data validation status
+    description: Detailed guest reviews from Booking.com with category ratings
+  - name: reviews_housekeepingreview
+    summary: "Review metrics for evaluating housekeeping staff performance"
+    columns:
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: review_month
+        type: text
+        allowed_values:
+          - ""
+          - 2025-05
+          - 2025-06
+          - 2025-08
+          - 2025-09
+          - 2025-10
+          - 2025-11
+          - 2025-12
+          - 2026-01
+        description: Month of the review (YYYY-MM format)
+      - name: cleanliness_rating
+        type: decimal
+        description: Cleanliness rating from guest review
+      - name: listing_id
+        type: text
+        references: listings_listing.id
+        description: Associated listing
+      - name: operation_user_id
+        type: text
+        references: operations_operationuser.id
+        description: Housekeeping staff who cleaned this unit
+      - name: reservation_id
+        type: text
+        references: reservations_reservation.id
+        description: Associated reservation
+      - name: review_id
+        type: text
+        references: reviews_review.id
+        description: Base review record
+      - name: accuracy_normalized
+        type: decimal
+        description: Accuracy rating normalized to 0-10 scale
+      - name: accuracy_rating
+        type: decimal
+        description: Original accuracy rating
+      - name: channel
+        type: text
+        allowed_values:
+          - airbnb
+          - booking
+          - other
+        description: Review platform (airbnb, booking, other)
+      - name: checkin_normalized
+        type: decimal
+        description: Check-in rating normalized to 0-10 scale
+      - name: checkin_rating
+        type: decimal
+        description: Original check-in rating
+      - name: cleanliness_normalized
+        type: decimal
+        description: Cleanliness rating normalized to 0-10 scale
+      - name: communication_normalized
+        type: decimal
+        description: Communication rating normalized to 0-10 scale
+      - name: communication_rating
+        type: decimal
+        description: Original communication rating
+      - name: location_normalized
+        type: decimal
+        description: Location rating normalized to 0-10 scale
+      - name: location_rating
+        type: decimal
+        description: Original location rating
+      - name: overall_normalized
+        type: decimal
+        description: Overall rating normalized to 0-10 scale
+      - name: overall_rating
+        type: decimal
+        description: Original overall rating
+      - name: region_group_id
+        type: text
+        references: listings_regiongroup.id
+        description: Region group for this property
+      - name: review_date
+        type: timestamp
+        description: Date review was submitted
+      - name: unit_id
+        type: text
+        references: listings_unit.id
+        description: Associated unit
+      - name: value_normalized
+        type: decimal
+        description: Value rating normalized to 0-10 scale
+      - name: value_rating
+        type: decimal
+        description: Original value rating
+      - name: comfort_normalized
+        type: decimal
+        description: Comfort rating normalized to 0-10 scale (Booking.com)
+      - name: comfort_rating
+        type: decimal
+        description: Original comfort rating (Booking.com)
+      - name: facilities_normalized
+        type: decimal
+        description: Facilities rating normalized to 0-10 scale (Booking.com)
+      - name: facilities_rating
+        type: decimal
+        description: Original facilities rating (Booking.com)
+      - name: staff_normalized
+        type: decimal
+        description: Staff rating normalized to 0-10 scale (Booking.com)
+      - name: staff_rating
+        type: decimal
+        description: Original staff rating (Booking.com)
+      - name: value_for_money_normalized
+        type: decimal
+        description: Value for money rating normalized to 0-10 scale (Booking.com)
+      - name: value_for_money_rating
+        type: decimal
+        description: Original value for money rating (Booking.com)
+    description: Aggregated review metrics used to evaluate housekeeping staff performance
+  - name: reviews_review
+    summary: "Base guest review records across all platforms"
+    columns:
+      - name: created_at
+        type: timestamp
+        description: Record creation timestamp
+      - name: updated_at
+        type: timestamp
+        description: Record last update timestamp
+      - name: id
+        type: text
+        primary_key: true
+        description: Unique identifier (primary key)
+      - name: pms_review_id
+        type: text
+        description: Review ID in Property Management System
+      - name: channel_review_id
+        type: text
+        description: Review ID in booking channel
+      - name: pms_listing_id
+        type: text
+        description: Listing ID in PMS
+      - name: pms_reservation_id
+        type: text
+        description: Reservation ID in PMS
+      - name: pms_parent_listing_id
+        type: text
+        description: Parent listing ID if applicable
+      - name: pms_guest_id
+        type: text
+        description: Guest ID in PMS
+      - name: pms_integration_id
+        type: text
+        description: Integration ID in PMS
+      - name: integration_type
+        type: text
+        allowed_values:
+          - airbnb
+          - booking
+        description: Platform that provided the review (airbnb, booking)
+      - name: rating
+        type: decimal
+        description: Overall rating score
+      - name: reviewee_response
+        type: text
+        description: Host response to the review
+      - name: pms_created_at
+        type: timestamp
+        description: When review was created in PMS
+      - name: pms_expires_at
+        type: timestamp
+        description: When review expires in PMS
+      - name: review_date
+        type: timestamp
+        description: Date review was submitted
+      - name: expires_at
+        type: timestamp
+        description: Review expiration date
+      - name: listing_id
+        type: text
+        references: listings_listing.id
+        description: Associated listing
+      - name: reservation_id
+        type: text
+        references: reservations_reservation.id
+        description: Associated reservation
+      - name: validation_errors
+        type: text
+        description: Validation errors if any
+      - name: validation_status
+        type: text
+        allowed_values:
+          - incomplete
+          - ok
+        description: Data validation status
+      - name: unit_id
+        type: text
+        references: listings_unit.id
+        description: Associated unit
+    description: Base guest review records across all platforms

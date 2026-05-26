@@ -1,0 +1,4 @@
+interface:
+  display_name: "Host Wise Managed Apps"
+  short_description: "Build safe managed web apps"
+  default_prompt: "Use $host-wise-managed-apps to build, test, and deploy a simple Host Wise managed web app safely."

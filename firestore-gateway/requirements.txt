@@ -1,0 +1,7 @@
+# Export from poetry with: poetry export -f requirements.txt --output requirements.txt --without-hashes
+fastapi[standard]>=0.125.0,<0.126.0
+google-cloud-firestore>=2.18.0,<3.0.0
+google-cloud-secret-manager>=2.20.0,<3.0.0
+uvicorn[standard]>=0.30.0
+mcp[cli]>=1.26.0,<2.0.0
+

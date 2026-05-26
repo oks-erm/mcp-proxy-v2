@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "cloud-run-deployer-mcp"
+version = "0.1.0"
+description = "Security-first MCP server for deploying internal apps to Google Cloud Run"
+authors = ["Host-Wise"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+mcp = ">=1.26.0,<2.0.0"
+fastapi = ">=0.115.0"
+uvicorn = ">=0.27.0"
+google-auth = ">=2.23.0"
+google-cloud-secret-manager = ">=2.20.0"
+google-cloud-storage = ">=2.18.0"
+python-dotenv = ">=1.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8.0.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

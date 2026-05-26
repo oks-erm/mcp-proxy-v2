@@ -1,0 +1,23 @@
+[project]
+name = "sql-gateway"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "pdrivomHW",email = "pedro.marques@hostwise.pt"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard] (>=0.124.4,<0.125.0)",
+    "google-cloud-secret-manager",
+    "sqlalchemy",
+    "psycopg2-binary",
+    "uvicorn",
+    "mcp[cli] (>=1.26.0,<2.0.0)",
+    "pyyaml (>=6.0.3,<7.0.0)",
+]
+
+
+
+[tool.poetry]
+package-mode = false

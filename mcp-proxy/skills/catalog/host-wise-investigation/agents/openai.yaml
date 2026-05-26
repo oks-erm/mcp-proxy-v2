@@ -1,0 +1,4 @@
+interface:
+  display_name: "Host Wise Investigation"
+  short_description: "Investigate ops and booking questions"
+  default_prompt: "Use $host-wise-investigation to investigate this question across the available MCP tools and return a short evidence-based diagnosis."
