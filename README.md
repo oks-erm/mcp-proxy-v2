@@ -4,6 +4,18 @@ Production-oriented MCP platform for connecting AI agents to operational systems
 
 This repository contains a multi-service Model Context Protocol stack built around a central proxy plus a set of modular MCP servers for workflows, data access, operations, CRM, finance, and support tooling. The code was originally developed for internal automation use, but the architecture is broadly reusable for teams building secure AI integrations against many back-end systems.
 
+```mermaid
+flowchart LR
+	A[Clients and Agents] --> B[mcp-proxy]
+	B --> C[Workflow and Deployment MCPs]
+	B --> D[Data Gateway MCPs]
+	B --> E[Business System MCPs]
+	F[mcp_platform shared helpers] --- B
+	F --- C
+	F --- D
+	F --- E
+```
+
 ## What This Project Demonstrates
 
 - Multi-service MCP architecture with a unified gateway for tools, prompts, and resources
