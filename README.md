@@ -16,7 +16,7 @@ flowchart LR
 	F --- E
 ```
 
-## What This Project Demonstrates
+## About This Project
 
 - Multi-service MCP architecture with a unified gateway for tools, prompts, and resources
 - Secure AI tool orchestration with role-aware access control and write protection
